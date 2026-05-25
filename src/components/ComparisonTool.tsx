@@ -13,7 +13,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import type {
   AccountScore,
   ApiErrorResponse,
@@ -88,6 +88,11 @@ type FormState = {
   locale: string;
 };
 
+type InitialUsers = {
+  left?: string;
+  right?: string;
+};
+
 type ComparisonRow = {
   label: string;
   left: ReactNode;
@@ -139,6 +144,15 @@ function getTopLanguages(dataset: UserDataset): string {
     .map(([language]) => language);
 
   return languages.length > 0 ? languages.join(" / ") : "暂无";
+}
+
+function buildComparisonUrl(left: string, right: string): string {
+  const query = new URLSearchParams({
+    a: left,
+    b: right
+  });
+
+  return `?${query.toString()}`;
 }
 
 function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
@@ -699,10 +713,10 @@ function Results({ result }: { result: CompareResponse }) {
   );
 }
 
-export function ComparisonTool() {
+export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUsers }) {
   const [form, setForm] = useState<FormState>({
-    left: "",
-    right: "",
+    left: initialUsers.left ?? "",
+    right: initialUsers.right ?? "",
     locale: "zh-CN"
   });
   const [result, setResult] = useState<CompareResponse | null>(null);
@@ -728,19 +742,21 @@ export function ComparisonTool() {
     return () => window.clearInterval(intervalId);
   }, [isLoading]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  const submitComparison = useCallback(async () => {
     if (!canSubmit) {
       return;
     }
 
+    const left = form.left.trim();
+    const right = form.right.trim();
+
+    window.history.replaceState(null, "", buildComparisonUrl(left, right));
     setIsLoading(true);
     setError(null);
     setResult(null);
     setTimeline([]);
     setLoadingSubtitleIndex(0);
-    setActiveComparisonUsers([form.left.trim(), form.right.trim()]);
+    setActiveComparisonUsers([left, right]);
 
     try {
       const response = await fetch("/api/compare/stream", {
@@ -749,7 +765,7 @@ export function ComparisonTool() {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          users: [form.left.trim(), form.right.trim()],
+          users: [left, right],
           locale: form.locale
         })
       });
@@ -810,6 +826,24 @@ export function ComparisonTool() {
       setActiveComparisonUsers(null);
       setLoadingSubtitleIndex(0);
     }
+  }, [canSubmit, form.left, form.locale, form.right]);
+
+  // Auto-starting from query parameters is paused for now.
+  // useEffect(() => {
+  //   if (!initialUsers.left || !initialUsers.right) {
+  //     return;
+  //   }
+  //
+  //   const timeoutId = window.setTimeout(() => {
+  //     void submitComparison();
+  //   }, 0);
+  //
+  //   return () => window.clearTimeout(timeoutId);
+  // }, [initialUsers.left, initialUsers.right, submitComparison]);
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitComparison();
   }
 
   return (
