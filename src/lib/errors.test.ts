@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AppError, getSafeClientMessage } from "@/lib/errors";
+import { AppError, getSafeClientMessage, serializeError } from "@/lib/errors";
 
 describe("getSafeClientMessage", () => {
   it("hides LLM provider details from client responses", () => {
@@ -22,5 +22,35 @@ describe("getSafeClientMessage", () => {
     const error = new AppError("github_user_not_found", "GitHub user was not found.", 404);
 
     expect(getSafeClientMessage(error)).toBe("GitHub user was not found.");
+  });
+
+  it("serializes AppError detail for backend logs", () => {
+    const error = new AppError("github_request_forbidden", "GitHub API request was forbidden.", 403, {
+      detail: {
+        request: {
+          path: "/users/octocat",
+          tokenPresent: true
+        },
+        response: {
+          status: 403,
+          bodyPreview: "{\"message\":\"Resource protected by organization policy\"}"
+        }
+      }
+    });
+
+    expect(serializeError(error)).toMatchObject({
+      code: "github_request_forbidden",
+      status: 403,
+      detail: {
+        request: {
+          path: "/users/octocat",
+          tokenPresent: true
+        },
+        response: {
+          status: 403,
+          bodyPreview: "{\"message\":\"Resource protected by organization policy\"}"
+        }
+      }
+    });
   });
 });

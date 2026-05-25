@@ -1,4 +1,4 @@
-import { AppError } from "@/lib/errors";
+import { AppError, logServerError, toErrorMessage } from "@/lib/errors";
 import type {
   ContributionTimelineEntry,
   ContributionStats,
@@ -12,6 +12,7 @@ const GITHUB_API_BASE = "https://api.github.com";
 const MAX_REPO_PAGES = 3;
 const PER_PAGE = 100;
 const PUBLIC_CONTEXT_LIMIT = 1800;
+const GITHUB_ERROR_BODY_PREVIEW_LIMIT = 1_500;
 
 type GitHubUserApiResponse = {
   login: string;
@@ -94,6 +95,23 @@ type FetchOptions = {
   accept?: string;
 };
 
+type GitHubErrorDetail = {
+  request: {
+    method: "GET" | "POST";
+    path: string;
+    tokenPresent: boolean;
+  };
+  response: {
+    status: number;
+    statusText: string;
+    headers: Record<string, string | null>;
+    bodyPreview: string;
+    githubMessage?: string;
+    documentationUrl?: string;
+    errors?: unknown;
+  };
+};
+
 function githubHeaders({ token, accept = "application/vnd.github+json" }: FetchOptions): HeadersInit {
   const headers: HeadersInit = {
     Accept: accept,
@@ -108,6 +126,104 @@ function githubHeaders({ token, accept = "application/vnd.github+json" }: FetchO
   return headers;
 }
 
+function gitHubResponseHeaders(response: Response): Record<string, string | null> {
+  return {
+    "x-github-request-id": response.headers.get("x-github-request-id"),
+    "x-ratelimit-limit": response.headers.get("x-ratelimit-limit"),
+    "x-ratelimit-remaining": response.headers.get("x-ratelimit-remaining"),
+    "x-ratelimit-reset": response.headers.get("x-ratelimit-reset"),
+    "x-ratelimit-resource": response.headers.get("x-ratelimit-resource"),
+    "x-ratelimit-used": response.headers.get("x-ratelimit-used"),
+    "retry-after": response.headers.get("retry-after")
+  };
+}
+
+function parseGitHubErrorPayload(responseText: string): Record<string, unknown> {
+  if (!responseText) {
+    return {};
+  }
+
+  try {
+    return asRecord(JSON.parse(responseText) as unknown);
+  } catch {
+    return {};
+  }
+}
+
+async function buildGitHubErrorDetail(
+  response: Response,
+  request: GitHubErrorDetail["request"]
+): Promise<GitHubErrorDetail> {
+  let responseText = "";
+
+  try {
+    responseText = await response.text();
+  } catch (error) {
+    responseText = `<failed to read GitHub error body: ${toErrorMessage(error)}>`;
+  }
+
+  const payload = parseGitHubErrorPayload(responseText);
+  const message = payload.message;
+  const documentationUrl = payload.documentation_url;
+
+  return {
+    request,
+    response: {
+      status: response.status,
+      statusText: response.statusText,
+      headers: gitHubResponseHeaders(response),
+      bodyPreview: responseText.slice(0, GITHUB_ERROR_BODY_PREVIEW_LIMIT),
+      ...(typeof message === "string" ? { githubMessage: message } : {}),
+      ...(typeof documentationUrl === "string" ? { documentationUrl } : {}),
+      ...("errors" in payload ? { errors: payload.errors } : {})
+    }
+  };
+}
+
+function isGitHubRateLimitFailure(response: Response, detail: GitHubErrorDetail): boolean {
+  const remaining = detail.response.headers["x-ratelimit-remaining"];
+  const message = detail.response.githubMessage?.toLowerCase() ?? "";
+
+  return response.status === 429 || remaining === "0" || message.includes("rate limit");
+}
+
+function createGitHubRequestError(response: Response, detail: GitHubErrorDetail): AppError {
+  if (response.status === 404) {
+    return new AppError("github_user_not_found", "GitHub user was not found.", 404, { detail });
+  }
+
+  if (response.status === 401) {
+    return new AppError(
+      "github_bad_credentials",
+      "GitHub token was rejected by GitHub. Check GITHUB_TOKEN and backend logs.",
+      401,
+      { detail }
+    );
+  }
+
+  if (isGitHubRateLimitFailure(response, detail)) {
+    return new AppError(
+      "github_rate_limited",
+      "GitHub API rate limit was reached. Check the backend logs for the raw GitHub response.",
+      429,
+      { detail }
+    );
+  }
+
+  if (response.status === 403) {
+    return new AppError(
+      "github_request_forbidden",
+      "GitHub API request was forbidden. Check GITHUB_TOKEN permissions and backend logs.",
+      403,
+      { detail }
+    );
+  }
+
+  return new AppError("github_request_failed", `GitHub request failed with status ${response.status}.`, 502, {
+    detail
+  });
+}
+
 async function fetchGitHubJson<T>(path: string, token?: string): Promise<T> {
   const response = await fetch(`${GITHUB_API_BASE}${path}`, {
     headers: githubHeaders({ token }),
@@ -118,19 +234,13 @@ async function fetchGitHubJson<T>(path: string, token?: string): Promise<T> {
     return (await response.json()) as T;
   }
 
-  if (response.status === 404) {
-    throw new AppError("github_user_not_found", "GitHub user was not found.", 404);
-  }
+  const detail = await buildGitHubErrorDetail(response, {
+    method: "GET",
+    path,
+    tokenPresent: Boolean(token)
+  });
 
-  if (response.status === 403 || response.status === 429) {
-    throw new AppError(
-      "github_rate_limited",
-      "GitHub API rate limit was reached. Add GITHUB_TOKEN and try again.",
-      429
-    );
-  }
-
-  throw new AppError("github_request_failed", `GitHub request failed with status ${response.status}.`, 502);
+  throw createGitHubRequestError(response, detail);
 }
 
 function mapProfile(input: GitHubUserApiResponse): GitHubProfile {
@@ -203,6 +313,10 @@ async function fetchPublicEvents(username: string, token?: string): Promise<GitH
     if (error instanceof AppError && error.code === "github_rate_limited") {
       throw error;
     }
+
+    logServerError("[github] Public events request failed; continuing without event timeline.", error, {
+      username
+    });
 
     return [];
   }
@@ -370,6 +484,20 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
   });
 
   if (!response.ok) {
+    const detail = await buildGitHubErrorDetail(response, {
+      method: "POST",
+      path: "/graphql",
+      tokenPresent: Boolean(token)
+    });
+
+    logServerError(
+      "[github] GraphQL contribution request failed; falling back to public events.",
+      createGitHubRequestError(response, detail),
+      {
+        username
+      }
+    );
+
     return null;
   }
 
@@ -377,6 +505,29 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
   const collection = payload.data?.user?.contributionsCollection;
 
   if (!collection || payload.errors?.length) {
+    logServerError(
+      "[github] GraphQL contribution response did not include usable contribution data; falling back to public events.",
+      new AppError("github_graphql_unusable_response", "GitHub GraphQL contribution response was not usable.", 502, {
+        detail: {
+          request: {
+            method: "POST",
+            path: "/graphql",
+            tokenPresent: Boolean(token)
+          },
+          response: {
+            status: response.status,
+            statusText: response.statusText,
+            headers: gitHubResponseHeaders(response),
+            errors: payload.errors ?? [],
+            userPresent: Boolean(payload.data?.user)
+          }
+        }
+      }),
+      {
+        username
+      }
+    );
+
     return null;
   }
 

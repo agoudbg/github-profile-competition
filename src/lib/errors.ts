@@ -1,12 +1,22 @@
+type ErrorLogDetail = Record<string, unknown>;
+
+type AppErrorOptions = ErrorOptions & {
+  detail?: ErrorLogDetail;
+};
+
 export class AppError extends Error {
   readonly code: string;
   readonly status: number;
+  readonly detail?: ErrorLogDetail;
 
-  constructor(code: string, message: string, status: number, options?: ErrorOptions) {
-    super(message, options);
+  constructor(code: string, message: string, status: number, options?: AppErrorOptions) {
+    const { detail, ...errorOptions } = options ?? {};
+
+    super(message, errorOptions);
     this.name = "AppError";
     this.code = code;
     this.status = status;
+    this.detail = detail;
   }
 }
 
@@ -18,14 +28,13 @@ export function toErrorMessage(error: unknown): string {
   return "Unknown error";
 }
 
-type ErrorLogDetail = Record<string, unknown>;
-
 type SerializedError = {
   name: string;
   message: string;
   stack?: string;
   code?: string;
   status?: number;
+  detail?: ErrorLogDetail;
   cause?: SerializedError;
 };
 
@@ -58,8 +67,13 @@ export function serializeError(error: unknown): SerializedError | { message: str
     stack: error.stack,
     code: getErrorField(error, "code") as string | undefined,
     status: getErrorField(error, "status") as number | undefined,
+    ...("detail" in error && isErrorLogDetail(error.detail) ? { detail: error.detail } : {}),
     ...(cause ? { cause: serializeError(cause) as SerializedError } : {})
   };
+}
+
+function isErrorLogDetail(value: unknown): value is ErrorLogDetail {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 export function logServerError(message: string, error: unknown, detail: ErrorLogDetail = {}): void {
