@@ -2,6 +2,10 @@
   "name": "github-profile-competition",
   "version": "0.1.0",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agoudbg/github-profile-competition.git"
+  },
   "type": "module",
   "scripts": {
     "dev": "next dev",
