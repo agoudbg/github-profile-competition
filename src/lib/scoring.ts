@@ -11,6 +11,8 @@ import type {
 
 const RECENT_WINDOW_DAYS = 365;
 
+export const SYSTEM_SCORING_VERSION = 1;
+
 function clampScore(value: number): number {
   if (!Number.isFinite(value)) {
     return 0;

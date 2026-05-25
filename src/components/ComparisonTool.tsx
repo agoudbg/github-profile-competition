@@ -2,7 +2,17 @@
 
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { AlertTriangle, BarChart3, ExternalLink, Info, LoaderCircle, Search, Swords, Trophy, X } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  ExternalLink,
+  Info,
+  LoaderCircle,
+  Search,
+  Swords,
+  Trophy,
+  X
+} from "lucide-react";
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import type {
   AccountScore,

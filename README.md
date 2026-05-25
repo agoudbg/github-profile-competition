@@ -26,6 +26,7 @@ ABUSE_RATE_LIMIT_WINDOW_SECONDS=900
 ABUSE_RATE_LIMIT_MAX=5
 ABUSE_CONCURRENT_MAX=1
 ABUSE_LIMIT_SALT=required_in_production
+LEADERBOARD_DATABASE_PATH=.data/leaderboard.sqlite
 ```
 
 `GITHUB_TOKEN` is optional. Without it, the app still uses public REST endpoints and public events, but contribution confidence is lower.
@@ -36,6 +37,10 @@ ABUSE_LIMIT_SALT=required_in_production
 Compare requests are protected before expensive GitHub and LLM calls run. The default guard allows five valid compare requests per client every 15 minutes and one in-flight compare request per client. Invalid JSON and validation failures return `400` before consuming rate-limit capacity.
 
 Set `ABUSE_LIMIT_SALT` to a stable secret value in production so client identifiers are hashed before they are used as in-memory keys. This lightweight guard is suitable as a first line of defense; for multi-instance serverless deployments, replace the in-memory store in `src/lib/abuse.ts` with Redis, KV, or another shared store.
+
+## Leaderboard
+
+Compared users are saved to SQLite with system-only scores, per-dimension scores, update time, and scoring version. Historical snapshots are retained, while the leaderboard ranks each user by their latest snapshot only. The UI shows up to the top 1,000 users and loads 100 users per page. Set `LEADERBOARD_DATABASE_PATH` to choose the SQLite file location; it defaults to `.data/leaderboard.sqlite`.
 
 ## Scripts
 

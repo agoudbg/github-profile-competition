@@ -1,6 +1,7 @@
 import { collectGitHubUserDataset } from "@/lib/github";
 import { generateLlmAnalysis } from "@/lib/llm";
 import { calculateComparisonMetrics, composeComparisonMetricsWithLlmScores } from "@/lib/scoring";
+import { saveLeaderboardScores } from "@/lib/leaderboard";
 import { getSafeClientMessage } from "@/lib/errors";
 import type {
   CompareRequest,
@@ -72,6 +73,7 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
   try {
     llm = await generateLlmAnalysis(datasets, metrics, locale, recorder.emit);
     metrics = composeComparisonMetricsWithLlmScores(metrics, llm.analysis.accountScores);
+    saveLeaderboardScores(datasets, metrics.accounts);
   } catch (error) {
     await recorder.emit({
       phase: "error",

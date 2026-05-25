@@ -172,6 +172,36 @@ export type CompareResponse = {
   requestedAt: string;
 };
 
+export type LeaderboardDimensionScore = {
+  key: DimensionKey;
+  label: string;
+  score: number;
+  rawValue: number;
+};
+
+export type LeaderboardEntry = {
+  rank: number;
+  username: string;
+  displayName: string | null;
+  avatarUrl: string;
+  profileUrl: string;
+  totalScore: number;
+  dimensions: LeaderboardDimensionScore[];
+  updatedAt: string;
+  scoringVersion: number;
+};
+
+export type LeaderboardResponse = {
+  entries: LeaderboardEntry[];
+  page: number;
+  pageSize: number;
+  total: number;
+  maxEntries: number;
+  hasNextPage: boolean;
+  isTruncated: boolean;
+  generatedAt: string;
+};
+
 export type ModelTimelineEvent = {
   id: string;
   at: string;

@@ -15,6 +15,10 @@ vi.mock("@/lib/scoring", () => ({
   composeComparisonMetricsWithLlmScores: vi.fn((metrics: ComparisonMetrics) => metrics)
 }));
 
+vi.mock("@/lib/leaderboard", () => ({
+  saveLeaderboardScores: vi.fn()
+}));
+
 const { compareGitHubProfiles } = await import("@/lib/compare");
 const { collectGitHubUserDataset } = await import("@/lib/github");
 const { generateLlmAnalysis } = await import("@/lib/llm");
