@@ -1397,10 +1397,13 @@ a {
 
   .llm-score-grid,
   .score-breakdown,
-  .leaderboard-dimensions,
   .formula-grid,
   .formula-row {
     grid-template-columns: 1fr;
+  }
+
+  .leaderboard-dimensions {
+    grid-template-columns: repeat(auto-fit, minmax(136px, 1fr));
   }
 
   .leaderboard-updated {
