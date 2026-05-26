@@ -5,7 +5,10 @@ import Image from "next/image";
 import {
   AlertTriangle,
   BarChart3,
+  Check,
+  Copy,
   ExternalLink,
+  ImageDown,
   Info,
   LoaderCircle,
   RefreshCw,
@@ -14,7 +17,7 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
   AccountScore,
   ApiErrorResponse,
@@ -24,6 +27,8 @@ import type {
   ModelTimelineEvent,
   UserDataset
 } from "@/lib/types";
+import { createSharePayload, SHARE_VALID_DAYS } from "@/lib/share";
+import { ShareImageModal } from "@/components/ShareImageModal";
 
 const RadarComparisonChart = dynamic(
   () => import("@/components/RadarComparisonChart").then((module) => module.RadarComparisonChart),
@@ -92,6 +97,7 @@ type FormState = {
 type InitialUsers = {
   left?: string;
   right?: string;
+  autoStart?: boolean;
 };
 
 type ComparisonRow = {
@@ -99,6 +105,8 @@ type ComparisonRow = {
   left: ReactNode;
   right: ReactNode;
 };
+
+type ShareStatus = "idle" | "copied" | "failed";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -170,6 +178,20 @@ function buildComparisonUrl(left: string, right: string): string {
   });
 
   return `?${query.toString()}`;
+}
+
+function buildShareComparisonUrl(left: string, right: string): string {
+  const query = new URLSearchParams({
+    a: left,
+    b: right,
+    share: "1"
+  });
+
+  return `?${query.toString()}`;
+}
+
+function getAbsoluteUrl(path: string): string {
+  return new URL(path, window.location.origin).toString();
 }
 
 function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
@@ -392,6 +414,81 @@ function AccountSummary({ dataset, score }: { dataset: UserDataset; score: Accou
         <span className="pill">{getTopLanguages(dataset)}</span>
       </div>
     </article>
+  );
+}
+
+function ResultShareActions({
+  result,
+  usernames
+}: {
+  result: CompareResponse;
+  usernames: [string, string];
+}) {
+  const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
+  const [isShareImageOpen, setIsShareImageOpen] = useState(false);
+  const resetTimerRef = useRef<number | null>(null);
+  const [leftUsername, rightUsername] = usernames;
+  const sharePath = buildShareComparisonUrl(leftUsername, rightUsername);
+  const sharePayload = useMemo(() => {
+    return createSharePayload(result, getAbsoluteUrl(sharePath));
+  }, [result, sharePath]);
+
+  useEffect(() => {
+    return () => {
+      if (resetTimerRef.current !== null) {
+        window.clearTimeout(resetTimerRef.current);
+      }
+    };
+  }, []);
+
+  const queueStatusReset = useCallback(() => {
+    if (resetTimerRef.current !== null) {
+      window.clearTimeout(resetTimerRef.current);
+    }
+
+    resetTimerRef.current = window.setTimeout(() => {
+      setShareStatus("idle");
+      resetTimerRef.current = null;
+    }, 2_400);
+  }, []);
+
+  const copyShareLink = useCallback(async () => {
+    const shareUrl = getAbsoluteUrl(sharePath);
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareStatus("copied");
+    } catch {
+      setShareStatus("failed");
+    } finally {
+      queueStatusReset();
+    }
+  }, [queueStatusReset, sharePath]);
+
+  const statusText =
+    shareStatus === "copied" ? "链接已复制" : shareStatus === "failed" ? "复制失败，请手动复制地址栏链接" : null;
+
+  return (
+    <>
+      <div className="share-panel" aria-label="分享比拼结果">
+        <div>
+          <h3>分享结果</h3>
+          <p>比拼信息 {SHARE_VALID_DAYS} 天内有效。</p>
+        </div>
+        <div className="share-actions">
+          <button className="icon-text-button" type="button" onClick={copyShareLink} title="复制结果链接">
+            {shareStatus === "copied" ? <Check size={17} aria-hidden="true" /> : <Copy size={17} aria-hidden="true" />}
+            复制链接
+          </button>
+          <button className="icon-text-button" type="button" onClick={() => setIsShareImageOpen(true)} title="打开保存图片弹窗">
+            <ImageDown size={17} aria-hidden="true" />
+            保存图片
+          </button>
+        </div>
+        {statusText ? <span className="share-status">{statusText}</span> : null}
+      </div>
+      {isShareImageOpen ? <ShareImageModal payload={sharePayload} onClose={() => setIsShareImageOpen(false)} /> : null}
+    </>
   );
 }
 
@@ -748,6 +845,7 @@ function Results({
             return <AccountSummary key={dataset.profile.login} dataset={dataset} score={score} />;
           })}
         </div>
+        <ResultShareActions result={result} usernames={usernames} />
       </section>
 
       <OverviewComparison datasets={datasets} />
@@ -885,18 +983,17 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     void submitComparison({ forceRefresh: true });
   }, [submitComparison]);
 
-  // Auto-starting from query parameters is paused for now.
-  // useEffect(() => {
-  //   if (!initialUsers.left || !initialUsers.right) {
-  //     return;
-  //   }
-  //
-  //   const timeoutId = window.setTimeout(() => {
-  //     void submitComparison();
-  //   }, 0);
-  //
-  //   return () => window.clearTimeout(timeoutId);
-  // }, [initialUsers.left, initialUsers.right, submitComparison]);
+  useEffect(() => {
+    if (!initialUsers.autoStart || !initialUsers.left || !initialUsers.right) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void submitComparison();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [initialUsers.autoStart, initialUsers.left, initialUsers.right, submitComparison]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

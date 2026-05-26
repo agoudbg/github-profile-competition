@@ -18,7 +18,8 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const params = (await searchParams) ?? {};
   const initialUsers = {
     left: getFirstSearchParam(params.a),
-    right: getFirstSearchParam(params.b)
+    right: getFirstSearchParam(params.b),
+    autoStart: getFirstSearchParam(params.share) === "1"
   };
 
   return (

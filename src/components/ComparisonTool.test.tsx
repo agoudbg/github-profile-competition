@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComparisonTool } from "@/components/ComparisonTool";
 import type { CompareResponse, UserDataset } from "@/lib/types";
@@ -180,5 +180,71 @@ describe("ComparisonTool", () => {
     const regenerateBody = JSON.parse(String(regenerateInit?.body)) as { forceRefresh?: boolean };
 
     expect(regenerateBody.forceRefresh).toBe(true);
+  });
+
+  it("copies a result share link that auto-opens the cached comparison", async () => {
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: clipboardWrite
+      }
+    });
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(streamResult(resultResponse()));
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("账号 A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("账号 B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
+
+    expect(await screen.findByText("分享结果")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "复制链接" }));
+
+    await waitFor(() => expect(clipboardWrite).toHaveBeenCalledTimes(1));
+    const shareUrl = new URL(String(clipboardWrite.mock.calls[0]?.[0]));
+    expect(shareUrl.searchParams.get("a")).toBe("alpha");
+    expect(shareUrl.searchParams.get("b")).toBe("beta");
+    expect(shareUrl.searchParams.get("share")).toBe("1");
+    expect(await screen.findByText("链接已复制")).toBeInTheDocument();
+  });
+
+  it("opens the canvas share image modal", async () => {
+    const openMock = vi.spyOn(window, "open");
+    const canvasContext = {
+      arc: vi.fn(),
+      arcTo: vi.fn(),
+      beginPath: vi.fn(),
+      clearRect: vi.fn(),
+      clip: vi.fn(),
+      closePath: vi.fn(),
+      createLinearGradient: vi.fn(() => ({
+        addColorStop: vi.fn()
+      })),
+      drawImage: vi.fn(),
+      fill: vi.fn(),
+      fillRect: vi.fn(),
+      fillText: vi.fn(),
+      lineTo: vi.fn(),
+      moveTo: vi.fn(),
+      restore: vi.fn(),
+      save: vi.fn(),
+      stroke: vi.fn()
+    } as unknown as CanvasRenderingContext2D;
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(canvasContext);
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(streamResult(resultResponse()));
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("账号 A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("账号 B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
+
+    expect(await screen.findByText("分享结果")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "保存图片" }));
+
+    expect(await screen.findByRole("dialog", { name: "保存结果图片" })).toBeInTheDocument();
+    expect(screen.getByText("下载 PNG")).toBeInTheDocument();
+    expect(openMock).not.toHaveBeenCalled();
   });
 });
