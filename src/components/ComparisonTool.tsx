@@ -1198,6 +1198,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
   const [loadingSubtitleIndex, setLoadingSubtitleIndex] = useState(0);
   const [activeComparisonUsers, setActiveComparisonUsers] = useState<[string, string] | null>(null);
   const battleOverlayIdRef = useRef(0);
+  const autoStartedComparisonKeyRef = useRef<string | null>(null);
   const [battleOverlay, setBattleOverlay] = useState<BattleOverlayState | null>(null);
 
   const canSubmit = useMemo(() => {
@@ -1318,7 +1319,13 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
       return;
     }
 
+    const autoStartKey = `${initialUsers.left.trim()}\u0000${initialUsers.right.trim()}`;
+    if (autoStartedComparisonKeyRef.current === autoStartKey) {
+      return;
+    }
+
     const timeoutId = window.setTimeout(() => {
+      autoStartedComparisonKeyRef.current = autoStartKey;
       void submitComparison();
     }, 0);
 

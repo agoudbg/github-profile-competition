@@ -147,6 +147,18 @@ describe("ComparisonTool", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("auto-starts a shared comparison only once", async () => {
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(streamResult(resultResponse()));
+
+    render(<ComparisonTool initialUsers={{ left: "alpha", right: "beta", autoStart: true }} />);
+
+    expect(await screen.findByText("分享结果")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps the browser URL in sync after manual submission", async () => {
     vi.spyOn(globalThis, "fetch").mockReturnValue(new Promise(() => undefined) as Promise<Response>);
     render(<ComparisonTool />);
