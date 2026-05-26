@@ -17,7 +17,16 @@ import {
   Trophy,
   X
 } from "lucide-react";
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type CSSProperties,
+  type FormEvent,
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react";
 import type {
   AccountScore,
   ApiErrorResponse,
@@ -108,6 +117,29 @@ type ComparisonRow = {
 
 type ShareStatus = "idle" | "copied" | "failed";
 
+type AvatarLoadState = {
+  left: boolean;
+  right: boolean;
+};
+
+type AccountOutcome = "winner" | "loser" | "neutral";
+type DuelDirection = "left" | "right";
+
+type BattleOverlayState = {
+  id: number;
+  users: [string, string];
+};
+
+type DuelPath = {
+  key: string;
+  runId: number;
+  x: number;
+  y: number;
+  length: number;
+  impactX: number;
+  angle: number;
+};
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -194,6 +226,10 @@ function getAbsoluteUrl(path: string): string {
   return new URL(path, window.location.origin).toString();
 }
 
+function buildGitHubAvatarUrl(username: string): string {
+  return `https://github.com/${encodeURIComponent(username)}.png?size=180`;
+}
+
 function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
   const topRepositories = getTopRepositories(repositories);
 
@@ -259,6 +295,74 @@ function EmptyState() {
         <p>输入两个 GitHub 用户名后开始比拼。</p>
       </div>
     </section>
+  );
+}
+
+function BattleOverlay({
+  animation,
+  onComplete
+}: {
+  animation: BattleOverlayState;
+  onComplete: (id: number) => void;
+}) {
+  const matchup = `${animation.users[0]} vs ${animation.users[1]}`;
+  const [avatarLoadState, setAvatarLoadState] = useState<AvatarLoadState>({ left: false, right: false });
+  const battleAvatars = useMemo(() => {
+    return [
+      { side: "left" as const, username: animation.users[0], avatarUrl: buildGitHubAvatarUrl(animation.users[0]) },
+      { side: "right" as const, username: animation.users[1], avatarUrl: buildGitHubAvatarUrl(animation.users[1]) }
+    ];
+  }, [animation.users]);
+  const areAvatarsReady = avatarLoadState.left && avatarLoadState.right;
+
+  useEffect(() => {
+    if (!areAvatarsReady) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => onComplete(animation.id), 5_200);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [animation.id, areAvatarsReady, onComplete]);
+
+  const markAvatarLoaded = useCallback((side: keyof AvatarLoadState) => {
+    setAvatarLoadState((current) => ({ ...current, [side]: true }));
+  }, []);
+
+  return (
+    <div
+      className={areAvatarsReady ? "battle-stage ready" : "battle-stage"}
+      aria-label={`${matchup} 开场动画`}
+      onAnimationEnd={(event) => {
+        if (event.currentTarget === event.target) {
+          onComplete(animation.id);
+        }
+      }}
+    >
+      {battleAvatars.map((avatar) => (
+        <div className={`battle-avatar battle-avatar-${avatar.side}`} key={avatar.side}>
+          <Image
+            src={avatar.avatarUrl}
+            alt={`${avatar.username} avatar`}
+            width={92}
+            height={92}
+            priority
+            onLoad={() => markAvatarLoaded(avatar.side)}
+            onError={() => markAvatarLoaded(avatar.side)}
+          />
+          <span>@{avatar.username}</span>
+        </div>
+      ))}
+      {areAvatarsReady ? (
+        <div className="battle-vs" aria-hidden="true">
+          <span>VS</span>
+        </div>
+      ) : (
+        <div className="battle-avatar-loader" aria-hidden="true">
+          <LoaderCircle className="spin" size={28} />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -372,17 +476,42 @@ function ComparisonRows({
   );
 }
 
-function AccountSummary({ dataset, score }: { dataset: UserDataset; score: AccountScore }) {
+function AccountSummary({
+  dataset,
+  score,
+  outcome,
+  avatarRef,
+  isOutcomeEffectActive,
+  effectDirection
+}: {
+  dataset: UserDataset;
+  score: AccountScore;
+  outcome: AccountOutcome;
+  avatarRef?: (element: HTMLDivElement | null) => void;
+  isOutcomeEffectActive: boolean;
+  effectDirection: DuelDirection;
+}) {
+  const outcomeClass = outcome === "neutral" ? "" : `account-card-${outcome}`;
+  const actionClass = isOutcomeEffectActive && outcome !== "neutral" ? "account-card-duel-active" : "";
+  const avatarActionStyle = {
+    "--avatar-action-direction": effectDirection === "left" ? "-1" : "1"
+  } as CSSProperties;
+
   return (
-    <article className="account-card">
+    <article className={`account-card ${outcomeClass} ${actionClass}`}>
       <div className="account-heading">
-        <Image
-          className="avatar"
-          src={dataset.profile.avatarUrl}
-          alt={`${dataset.profile.login} avatar`}
-          width={58}
-          height={58}
-        />
+        <div className="avatar-frame" ref={avatarRef} style={avatarActionStyle}>
+          {outcome === "winner" && isOutcomeEffectActive ? <span className="winner-hat" aria-hidden="true" /> : null}
+          {outcome === "winner" && isOutcomeEffectActive ? <span className="attack-arc" aria-hidden="true" /> : null}
+          {outcome === "loser" && isOutcomeEffectActive ? <span className="hit-burst" aria-hidden="true" /> : null}
+          <Image
+            className="avatar"
+            src={dataset.profile.avatarUrl}
+            alt={`${dataset.profile.login} avatar`}
+            width={58}
+            height={58}
+          />
+        </div>
         <div className="account-name">
           <h3>{dataset.profile.name ?? dataset.profile.login}</h3>
           <p>@{dataset.profile.login}</p>
@@ -807,17 +936,197 @@ function Results({
   onRegenerate: () => void;
 }) {
   const [isScoreInfoOpen, setIsScoreInfoOpen] = useState(false);
+  const resultPanelRef = useRef<HTMLElement | null>(null);
+  const avatarRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const duelRunIdRef = useRef(0);
+  const [activeDuelKey, setActiveDuelKey] = useState<string | null>(null);
+  const [duelPath, setDuelPath] = useState<DuelPath | null>(null);
   const accounts = result.metrics.accounts as [AccountScore, AccountScore];
   const datasets = result.users as [UserDataset, UserDataset];
   const usernames = [accounts[0].username, accounts[1].username] as [string, string];
   const scoreByUsername = new Map(accounts.map((account) => [account.username, account]));
   const winner = result.metrics.winner?.username ?? null;
+  const winnerKey = winner?.toLowerCase() ?? null;
+  const loser = winner
+    ? datasets.find((dataset) => dataset.profile.login.toLowerCase() !== winner.toLowerCase())?.profile.login ?? null
+    : null;
+  const loserKey = loser?.toLowerCase() ?? null;
+  const winnerIndex = winnerKey ? datasets.findIndex((dataset) => dataset.profile.login.toLowerCase() === winnerKey) : -1;
+  const loserIndex = loserKey ? datasets.findIndex((dataset) => dataset.profile.login.toLowerCase() === loserKey) : -1;
+  const duelDirection: DuelDirection = winnerIndex >= 0 && loserIndex >= 0 && winnerIndex > loserIndex ? "left" : "right";
+  const duelKey = winnerKey && loserKey ? `${result.requestedAt}-${winnerKey}-${loserKey}` : null;
+  const activeDuelPath = duelPath?.key === activeDuelKey ? duelPath : null;
+  const duelStyle = activeDuelPath
+    ? ({
+        "--duel-x": `${activeDuelPath.x}px`,
+        "--duel-y": `${activeDuelPath.y}px`,
+        "--duel-length": `${activeDuelPath.length}px`,
+        "--duel-impact-x": `${activeDuelPath.impactX}px`,
+        "--duel-angle": `${activeDuelPath.angle}deg`
+      } as CSSProperties)
+    : undefined;
+
+  const setAvatarRef = useCallback((username: string, element: HTMLDivElement | null) => {
+    avatarRefs.current[username.toLowerCase()] = element;
+  }, []);
+
+  const updateDuelPath = useCallback(() => {
+    if (!activeDuelKey || !duelKey || !winnerKey || !loserKey) {
+      return;
+    }
+
+    const winnerAvatarElement = avatarRefs.current[winnerKey];
+    const loserAvatarElement = avatarRefs.current[loserKey];
+
+    if (!winnerAvatarElement || !loserAvatarElement) {
+      return;
+    }
+
+    const winnerRect = winnerAvatarElement.getBoundingClientRect();
+    const loserRect = loserAvatarElement.getBoundingClientRect();
+    const startViewportX = winnerRect.left + winnerRect.width / 2;
+    const startViewportY = winnerRect.top + winnerRect.height / 2;
+    const endViewportX = loserRect.left + loserRect.width / 2;
+    const endViewportY = loserRect.top + loserRect.height / 2;
+    const deltaX = endViewportX - startViewportX;
+    const deltaY = endViewportY - startViewportY;
+    const distanceToLoser = Math.hypot(deltaX, deltaY);
+    const rayLength = Math.max(distanceToLoser, 1);
+    const unitX = deltaX / rayLength;
+    const unitY = deltaY / rayLength;
+    const edgeDistances = [
+      unitX > 0 ? (window.innerWidth - startViewportX) / unitX : null,
+      unitX < 0 ? -startViewportX / unitX : null,
+      unitY > 0 ? (window.innerHeight - startViewportY) / unitY : null,
+      unitY < 0 ? -startViewportY / unitY : null
+    ].filter((distance): distance is number => typeof distance === "number" && Number.isFinite(distance) && distance > 0);
+    const distanceToViewportEdge = edgeDistances.length > 0 ? Math.min(...edgeDistances) : distanceToLoser;
+
+    setDuelPath({
+      key: activeDuelKey,
+      runId: duelRunIdRef.current,
+      x: startViewportX,
+      y: startViewportY,
+      length: Math.max(distanceToViewportEdge + 260, distanceToLoser + 260, window.innerWidth * 0.6),
+      impactX: distanceToLoser,
+      angle: Math.atan2(deltaY, deltaX) * (180 / Math.PI)
+    });
+  }, [activeDuelKey, duelKey, loserKey, winnerKey]);
+
+  useEffect(() => {
+    const panelElement = resultPanelRef.current;
+
+    if (isLoading || !winnerKey || !loserKey || !duelKey || !panelElement) {
+      return;
+    }
+
+    const IntersectionObserverConstructor = globalThis.IntersectionObserver;
+    let delayTimeoutId = 0;
+
+    const queueDuelRun = () => {
+      window.clearTimeout(delayTimeoutId);
+      delayTimeoutId = window.setTimeout(() => {
+        duelRunIdRef.current += 1;
+        setActiveDuelKey(`${duelKey}:${duelRunIdRef.current}`);
+      }, 500);
+    };
+
+    const resetDuelRun = () => {
+      window.clearTimeout(delayTimeoutId);
+      setActiveDuelKey(null);
+      setDuelPath(null);
+    };
+
+    if (typeof IntersectionObserverConstructor !== "function") {
+      const animationFrameId = globalThis.requestAnimationFrame(() => {
+        queueDuelRun();
+      });
+
+      return () => {
+        window.clearTimeout(delayTimeoutId);
+        globalThis.cancelAnimationFrame(animationFrameId);
+      };
+    }
+
+    const observer = new IntersectionObserverConstructor(
+      ([entry]) => {
+        if (entry?.isIntersecting) {
+          queueDuelRun();
+        } else {
+          resetDuelRun();
+        }
+      },
+      {
+        threshold: 0.42
+      }
+    );
+
+    observer.observe(panelElement);
+
+    return () => {
+      window.clearTimeout(delayTimeoutId);
+      observer.disconnect();
+    };
+  }, [duelKey, isLoading, loserKey, winnerKey]);
+
+  useEffect(() => {
+    if (!activeDuelKey || !duelKey || !activeDuelKey.startsWith(`${duelKey}:`)) {
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    const animationFrameId = window.requestAnimationFrame(() => {
+      updateDuelPath();
+    });
+
+    return () => window.cancelAnimationFrame(animationFrameId);
+  }, [activeDuelKey, duelKey, isLoading, updateDuelPath]);
+
+  useEffect(() => {
+    if (!activeDuelPath) {
+      return;
+    }
+
+    let animationFrameId = 0;
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(animationFrameId);
+      animationFrameId = window.requestAnimationFrame(updateDuelPath);
+    };
+
+    window.addEventListener("scroll", scheduleUpdate, { passive: true });
+    window.addEventListener("resize", scheduleUpdate);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrameId);
+      window.removeEventListener("scroll", scheduleUpdate);
+      window.removeEventListener("resize", scheduleUpdate);
+    };
+  }, [activeDuelPath, updateDuelPath]);
 
   return (
     <div className="results-stack">
       {result.cache ? <CacheNotice cachedAt={result.cache.cachedAt} isLoading={isLoading} onRegenerate={onRegenerate} /> : null}
 
-      <section className="result-panel">
+      {duelStyle && activeDuelPath ? (
+        <div className="duel-viewport" aria-hidden="true" key={activeDuelPath.key}>
+          <div className="duel-effect" style={duelStyle}>
+            <span className="lightsaber-core" />
+            <span className="lightsaber-impact-point" />
+            <span className="lightsaber-speed speed-a" />
+            <span className="lightsaber-speed speed-b" />
+            <span className="lightsaber-speed speed-c" />
+            <span className="lightsaber-spark spark-a" />
+            <span className="lightsaber-spark spark-b" />
+            <span className="lightsaber-spark spark-c" />
+            <span className="lightsaber-spark spark-d" />
+          </div>
+        </div>
+      ) : null}
+
+      <section className="result-panel" ref={resultPanelRef}>
         <div className="panel-heading">
           <div className="title-with-action">
             <h2 className="panel-title">综合结果</h2>
@@ -842,7 +1151,20 @@ function Results({
               return null;
             }
 
-            return <AccountSummary key={dataset.profile.login} dataset={dataset} score={score} />;
+            const datasetKey = dataset.profile.login.toLowerCase();
+            const outcome: AccountOutcome = datasetKey === winnerKey ? "winner" : datasetKey === loserKey ? "loser" : "neutral";
+
+            return (
+              <AccountSummary
+                key={dataset.profile.login}
+                dataset={dataset}
+                score={score}
+                outcome={outcome}
+                avatarRef={(element) => setAvatarRef(dataset.profile.login, element)}
+                isOutcomeEffectActive={Boolean(duelStyle)}
+                effectDirection={duelDirection}
+              />
+            );
           })}
         </div>
         <ResultShareActions result={result} usernames={usernames} />
@@ -875,6 +1197,8 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
   const [isLoading, setIsLoading] = useState(false);
   const [loadingSubtitleIndex, setLoadingSubtitleIndex] = useState(0);
   const [activeComparisonUsers, setActiveComparisonUsers] = useState<[string, string] | null>(null);
+  const battleOverlayIdRef = useRef(0);
+  const [battleOverlay, setBattleOverlay] = useState<BattleOverlayState | null>(null);
 
   const canSubmit = useMemo(() => {
     return form.left.trim().length > 0 && form.right.trim().length > 0 && !isLoading;
@@ -907,6 +1231,8 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     setTimeline([]);
     setLoadingSubtitleIndex(0);
     setActiveComparisonUsers([left, right]);
+    battleOverlayIdRef.current += 1;
+    setBattleOverlay({ id: battleOverlayIdRef.current, users: [left, right] });
 
     try {
       const response = await fetch("/api/compare/stream", {
@@ -983,6 +1309,10 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     void submitComparison({ forceRefresh: true });
   }, [submitComparison]);
 
+  const completeBattleOverlay = useCallback((id: number) => {
+    setBattleOverlay((current) => (current?.id === id ? null : current));
+  }, []);
+
   useEffect(() => {
     if (!initialUsers.autoStart || !initialUsers.left || !initialUsers.right) {
       return;
@@ -1001,7 +1331,9 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
   }
 
   return (
-    <div className="workspace">
+    <>
+      {battleOverlay ? <BattleOverlay animation={battleOverlay} onComplete={completeBattleOverlay} key={battleOverlay.id} /> : null}
+      <div className="workspace">
       <section className="control-panel">
         <div className="brand-row">
           <div className="brand-mark">
@@ -1070,6 +1402,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
           <EmptyState />
         )}
       </section>
-    </div>
+      </div>
+    </>
   );
 }
