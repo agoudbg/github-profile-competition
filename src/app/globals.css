@@ -190,9 +190,10 @@ a {
 .leaderboard-panel,
 .result-panel,
 .empty-panel,
-.loading-panel,
-.error-panel,
-.comparison-panel,
+  .loading-panel,
+  .error-panel,
+  .cache-panel,
+  .comparison-panel,
 .metric-table-wrap,
 .chart-panel,
 .analysis-panel {
@@ -210,6 +211,36 @@ a {
   background: rgb(255 253 248 / 88%);
   box-shadow: var(--shadow);
   backdrop-filter: blur(18px);
+}
+
+.cache-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border: 1px solid rgb(15 118 110 / 28%);
+  border-radius: 8px;
+  padding: 16px 18px;
+  background: rgb(215 242 236 / 58%);
+  box-shadow: var(--shadow);
+}
+
+.cache-panel h2 {
+  margin: 0;
+  color: var(--accent-strong);
+  font-size: 16px;
+}
+
+.cache-panel p {
+  margin: 5px 0 0;
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.cache-panel time {
+  color: var(--accent-strong);
+  font-weight: 900;
 }
 
 .control-panel {
@@ -1356,6 +1387,7 @@ a {
   .leaderboard-panel,
   .result-panel,
   .loading-panel,
+  .cache-panel,
   .chart-panel,
   .analysis-panel,
   .comparison-panel,
@@ -1385,7 +1417,8 @@ a {
   }
 
   .llm-dimension-head,
-  .panel-heading {
+  .panel-heading,
+  .cache-panel {
     align-items: flex-start;
     flex-direction: column;
   }

@@ -5,7 +5,16 @@ describe("parseCompareRequest", () => {
   it("normalizes a valid two-user request", () => {
     expect(parseCompareRequest({ users: [" torvalds ", "gaearon"], locale: "zh-CN" })).toEqual({
       users: ["torvalds", "gaearon"],
-      locale: "zh-CN"
+      locale: "zh-CN",
+      forceRefresh: false
+    });
+  });
+
+  it("accepts an explicit cache bypass flag", () => {
+    expect(parseCompareRequest({ users: ["torvalds", "gaearon"], locale: "zh-CN", forceRefresh: true })).toEqual({
+      users: ["torvalds", "gaearon"],
+      locale: "zh-CN",
+      forceRefresh: true
     });
   });
 

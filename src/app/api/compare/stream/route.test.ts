@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetAbuseProtectionForTests } from "@/lib/abuse";
+import { resetComparisonCacheForTests } from "@/lib/comparisonCache";
 import type { CompareResponse, CompareStreamEvent } from "@/lib/types";
 
 vi.mock("@/lib/compare", () => ({
@@ -59,7 +60,9 @@ async function readStreamEvents(response: Response): Promise<CompareStreamEvent[
 describe("/api/compare/stream", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetComparisonCacheForTests();
     resetAbuseProtectionForTests();
+    process.env.COMPARISON_CACHE_DATABASE_PATH = ":memory:";
     process.env.ABUSE_PROTECTION_ENABLED = "true";
     process.env.ABUSE_RATE_LIMIT_WINDOW_SECONDS = "900";
     process.env.ABUSE_RATE_LIMIT_MAX = "5";
@@ -94,5 +97,34 @@ describe("/api/compare/stream", () => {
 
     resolveCompare?.();
     await runningResponse.text();
+  });
+
+  it("streams cached results for swapped users without running a new comparison", async () => {
+    compareGitHubProfilesMock.mockResolvedValue(mockCompareResponse());
+
+    const generatedResponse = await POST(compareRequest("203.0.113.10", { users: ["alpha", "beta"], locale: "zh-CN" }));
+    const cachedResponse = await POST(compareRequest("203.0.113.10", { users: ["BETA", "Alpha"], locale: "zh-CN" }));
+    const generatedEvents = await readStreamEvents(generatedResponse);
+    const cachedEvents = await readStreamEvents(cachedResponse);
+
+    expect(generatedEvents).toEqual([
+      {
+        type: "result",
+        result: mockCompareResponse()
+      }
+    ]);
+    expect(cachedEvents).toEqual([
+      {
+        type: "result",
+        result: {
+          ...mockCompareResponse(),
+          cache: {
+            hit: true,
+            cachedAt: expect.any(String)
+          }
+        }
+      }
+    ]);
+    expect(compareGitHubProfilesMock).toHaveBeenCalledTimes(1);
   });
 });

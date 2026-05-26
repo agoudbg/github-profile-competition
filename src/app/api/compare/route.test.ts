@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { resetAbuseProtectionForTests } from "@/lib/abuse";
+import { resetComparisonCacheForTests } from "@/lib/comparisonCache";
 
 vi.mock("@/lib/compare", () => ({
   compareGitHubProfiles: vi.fn()
@@ -50,7 +51,9 @@ function mockCompareResponse() {
 describe("/api/compare", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetComparisonCacheForTests();
     resetAbuseProtectionForTests();
+    process.env.COMPARISON_CACHE_DATABASE_PATH = ":memory:";
     process.env.ABUSE_PROTECTION_ENABLED = "true";
     process.env.ABUSE_RATE_LIMIT_WINDOW_SECONDS = "900";
     process.env.ABUSE_RATE_LIMIT_MAX = "1";
@@ -62,7 +65,7 @@ describe("/api/compare", () => {
   it("returns a rate limit error with Retry-After after the client limit is reached", async () => {
     expect((await POST(compareRequest())).status).toBe(200);
 
-    const response = await POST(compareRequest());
+    const response = await POST(compareRequest("203.0.113.10", { users: ["gamma", "delta"], locale: "zh-CN" }));
     const body = await response.json();
 
     expect(response.status).toBe(429);
@@ -86,5 +89,33 @@ describe("/api/compare", () => {
 
     expect(validResponse.status).toBe(200);
     expect(compareGitHubProfilesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns a cached result for the same unordered pair without consuming rate limit capacity", async () => {
+    const generatedResponse = await POST(compareRequest("203.0.113.10", { users: ["alpha", "beta"], locale: "zh-CN" }));
+    const cachedResponse = await POST(compareRequest("203.0.113.10", { users: ["BETA", "Alpha"], locale: "zh-CN" }));
+    const cachedBody = await cachedResponse.json();
+
+    expect(generatedResponse.status).toBe(200);
+    expect(cachedResponse.status).toBe(200);
+    expect(cachedBody.cache).toEqual({
+      hit: true,
+      cachedAt: expect.any(String)
+    });
+    expect(compareGitHubProfilesMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("bypasses the cache when forceRefresh is true", async () => {
+    process.env.ABUSE_RATE_LIMIT_MAX = "5";
+
+    await POST(compareRequest("203.0.113.10", { users: ["alpha", "beta"], locale: "zh-CN" }));
+    const refreshedResponse = await POST(
+      compareRequest("203.0.113.10", { users: ["BETA", "Alpha"], locale: "zh-CN", forceRefresh: true })
+    );
+    const refreshedBody = await refreshedResponse.json();
+
+    expect(refreshedResponse.status).toBe(200);
+    expect(refreshedBody.cache).toBeUndefined();
+    expect(compareGitHubProfilesMock).toHaveBeenCalledTimes(2);
   });
 });

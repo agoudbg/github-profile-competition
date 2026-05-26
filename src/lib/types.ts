@@ -3,6 +3,7 @@ export type LocaleCode = "zh-CN" | "en-US";
 export type CompareRequest = {
   users: [string, string];
   locale?: LocaleCode;
+  forceRefresh?: boolean;
 };
 
 export type GitHubProfile = {
@@ -170,6 +171,10 @@ export type CompareResponse = {
   timeline: ModelTimelineEvent[];
   locale: LocaleCode;
   requestedAt: string;
+  cache?: {
+    hit: true;
+    cachedAt: string;
+  };
 };
 
 export type LeaderboardDimensionScore = {

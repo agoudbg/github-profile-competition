@@ -2,6 +2,7 @@ import { ZodError } from "zod";
 import { getAbuseRetryAfterSeconds, guardCompareRequest } from "@/lib/abuse";
 import { AppError, getSafeClientMessage, logServerError } from "@/lib/errors";
 import { compareGitHubProfiles } from "@/lib/compare";
+import { getCachedComparisonResult, saveComparisonResultToCache } from "@/lib/comparisonCache";
 import { readJsonBody } from "@/lib/requestBody";
 import { parseCompareRequest } from "@/lib/validation";
 import type { ApiErrorResponse, CompareRequest, CompareStreamEvent } from "@/lib/types";
@@ -54,6 +55,16 @@ function streamErrorResponse(error: ApiErrorResponse["error"], retryAfterSeconds
   });
 }
 
+function streamResultResponse(result: CompareStreamEvent & { type: "result" }): Response {
+  return new Response(`${JSON.stringify(result)}\n`, {
+    headers: {
+      "Cache-Control": "no-cache, no-transform",
+      "Content-Type": "application/x-ndjson; charset=utf-8",
+      "X-Accel-Buffering": "no"
+    }
+  });
+}
+
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
 
@@ -71,6 +82,14 @@ export async function POST(request: Request): Promise<Response> {
   } catch (error) {
     const normalized = normalizeError(error);
     return jsonErrorResponse(normalized, getAbuseRetryAfterSeconds(error));
+  }
+
+  const cachedResult = parsedRequest.forceRefresh ? null : getCachedComparisonResult(parsedRequest);
+  if (cachedResult) {
+    return streamResultResponse({
+      type: "result",
+      result: cachedResult
+    });
   }
 
   let releaseAbuseGuard: () => void;
@@ -96,6 +115,8 @@ export async function POST(request: Request): Promise<Response> {
             event
           });
         });
+
+        saveComparisonResultToCache(parsedRequest, result);
 
         send({
           type: "result",

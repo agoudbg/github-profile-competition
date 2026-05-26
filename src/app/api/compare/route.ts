@@ -3,6 +3,7 @@ import { ZodError } from "zod";
 import { getAbuseRetryAfterSeconds, guardCompareRequest } from "@/lib/abuse";
 import { AppError, getSafeClientMessage, logServerError } from "@/lib/errors";
 import { compareGitHubProfiles } from "@/lib/compare";
+import { getCachedComparisonResult, saveComparisonResultToCache } from "@/lib/comparisonCache";
 import { readJsonBody } from "@/lib/requestBody";
 import { parseCompareRequest } from "@/lib/validation";
 import type { ApiErrorResponse, CompareResponse } from "@/lib/types";
@@ -37,10 +38,16 @@ export async function POST(request: Request): Promise<NextResponse<CompareRespon
   try {
     const body = await readJsonBody(request);
     const parsedRequest = parseCompareRequest(body);
+    const cachedResult = parsedRequest.forceRefresh ? null : getCachedComparisonResult(parsedRequest);
+
+    if (cachedResult) {
+      return NextResponse.json(cachedResult);
+    }
 
     releaseAbuseGuard = guardCompareRequest(request);
 
     const response = await compareGitHubProfiles(parsedRequest);
+    saveComparisonResultToCache(parsedRequest, response);
     return NextResponse.json(response);
   } catch (error) {
     if (error instanceof ZodError) {

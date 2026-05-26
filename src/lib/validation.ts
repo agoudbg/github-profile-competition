@@ -19,7 +19,8 @@ export const localeSchema = z.enum(["zh-CN", "en-US"]);
 export const compareRequestSchema = z
   .object({
     users: z.tuple([githubUsernameSchema, githubUsernameSchema]),
-    locale: localeSchema.optional().default("zh-CN")
+    locale: localeSchema.optional().default("zh-CN"),
+    forceRefresh: z.boolean().optional().default(false)
   })
   .refine((value) => value.users[0].toLowerCase() !== value.users[1].toLowerCase(), {
     message: "Please compare two different GitHub usernames.",
@@ -30,6 +31,7 @@ export function parseCompareRequest(input: unknown): CompareRequest {
   const parsed = compareRequestSchema.parse(input);
   return {
     users: [parsed.users[0], parsed.users[1]],
-    locale: parsed.locale
+    locale: parsed.locale,
+    forceRefresh: parsed.forceRefresh
   };
 }

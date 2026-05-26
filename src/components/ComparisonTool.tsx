@@ -8,6 +8,7 @@ import {
   ExternalLink,
   Info,
   LoaderCircle,
+  RefreshCw,
   Search,
   Swords,
   Trophy,
@@ -125,6 +126,22 @@ function formatDate(value: string | null): string {
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(value));
+}
+
+function formatDateTime(value: string): string {
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "未知时间";
+  }
+
+  return new Intl.DateTimeFormat("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
 }
 
 function sumRepositories(repositories: GitHubRepository[], selector: (repository: GitHubRepository) => number): number {
@@ -658,7 +675,40 @@ function AnalysisList({ title, items, sourceIds }: { title: string; items: strin
   );
 }
 
-function Results({ result }: { result: CompareResponse }) {
+function CacheNotice({
+  cachedAt,
+  isLoading,
+  onRegenerate
+}: {
+  cachedAt: string;
+  isLoading: boolean;
+  onRegenerate: () => void;
+}) {
+  return (
+    <section className="cache-panel" aria-live="polite">
+      <div>
+        <h2>已显示缓存结果</h2>
+        <p>
+          缓存时间：<time dateTime={cachedAt}>{formatDateTime(cachedAt)}</time>
+        </p>
+      </div>
+      <button className="icon-text-button" type="button" onClick={onRegenerate} disabled={isLoading} title="重新生成比拼结果">
+        {isLoading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <RefreshCw size={17} aria-hidden="true" />}
+        重新生成
+      </button>
+    </section>
+  );
+}
+
+function Results({
+  result,
+  isLoading,
+  onRegenerate
+}: {
+  result: CompareResponse;
+  isLoading: boolean;
+  onRegenerate: () => void;
+}) {
   const [isScoreInfoOpen, setIsScoreInfoOpen] = useState(false);
   const accounts = result.metrics.accounts as [AccountScore, AccountScore];
   const datasets = result.users as [UserDataset, UserDataset];
@@ -668,6 +718,8 @@ function Results({ result }: { result: CompareResponse }) {
 
   return (
     <div className="results-stack">
+      {result.cache ? <CacheNotice cachedAt={result.cache.cachedAt} isLoading={isLoading} onRegenerate={onRegenerate} /> : null}
+
       <section className="result-panel">
         <div className="panel-heading">
           <div className="title-with-action">
@@ -742,7 +794,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     return () => window.clearInterval(intervalId);
   }, [isLoading]);
 
-  const submitComparison = useCallback(async () => {
+  const submitComparison = useCallback(async (options: { forceRefresh?: boolean } = {}) => {
     if (!canSubmit) {
       return;
     }
@@ -766,7 +818,8 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
         },
         body: JSON.stringify({
           users: [left, right],
-          locale: form.locale
+          locale: form.locale,
+          ...(options.forceRefresh ? { forceRefresh: true } : {})
         })
       });
 
@@ -827,6 +880,10 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
       setLoadingSubtitleIndex(0);
     }
   }, [canSubmit, form.left, form.locale, form.right]);
+
+  const regenerateComparison = useCallback(() => {
+    void submitComparison({ forceRefresh: true });
+  }, [submitComparison]);
 
   // Auto-starting from query parameters is paused for now.
   // useEffect(() => {
@@ -909,7 +966,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
         {error ? (
           <ErrorState message={error} />
         ) : result ? (
-          <Results result={result} />
+          <Results result={result} isLoading={isLoading} onRegenerate={regenerateComparison} />
         ) : isLoading ? (
           <LoadingState users={activeComparisonUsers} subtitle={loadingSubtitles[loadingSubtitleIndex]} />
         ) : (
