@@ -978,10 +978,10 @@ function AnalysisDetailCards({
             <div className="source-footnotes">
               <h3>{messages.analysis.sourcesTitle}</h3>
               <ol>
-                {result.llm.analysis.sources.map((source, index) => (
+                {result.llm.analysis.sources.map((source) => (
                   <li id={`source-${source.id}`} key={source.id}>
                     <a href={source.url} target="_blank" rel="noreferrer">
-                      <strong>[{index + 1}] {source.id}</strong> {source.label}
+                      <strong>{source.id}</strong> {source.label}
                     </a>
                     <span className="source-footnote-note">{source.note}</span>
                   </li>
