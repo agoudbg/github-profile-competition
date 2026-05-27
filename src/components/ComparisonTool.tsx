@@ -38,66 +38,23 @@ import type {
   ModelTimelineEvent,
   UserDataset
 } from "@/lib/types";
+import { zhCN } from "@/i18n/messages";
 import { createSharePayload, SHARE_VALID_DAYS } from "@/lib/share";
 import { ShareImageModal } from "@/components/ShareImageModal";
+
+const messages = zhCN.comparison;
 
 const RadarComparisonChart = dynamic(
   () => import("@/components/RadarComparisonChart").then((module) => module.RadarComparisonChart),
   {
     ssr: false,
-    loading: () => <div className="chart-loading">雷达图加载中</div>
+    loading: () => <div className="chart-loading">{messages.chartLoading}</div>
   }
 );
 
-const loadingSubtitles = [
-  "正在读取公开资料，先把 stars、forks 和贡献时间线摆上桌。",
-  "模型正在翻 README 和 Issue 线索，试图找出真正的项目含金量。",
-  "系统分已经开跑，LLM 分正在慢慢热身。",
-  "贡献记录正在排队称重，近期活跃度会被认真对待。",
-  "如果双方很接近，我们会让证据多说两句。"
-] as const;
-
-const scoreFormulaRows = [
-  {
-    title: "固定系统分",
-    detail: "五个维度各按 0-100 计算，系统分是五项平均值。"
-  },
-  {
-    title: "LLM 判断分",
-    detail: "模型基于资料、工具返回证据和系统分，为每个账号给出 0-100 的判断分。"
-  },
-  {
-    title: "最终总分",
-    detail: "最终总分 = 固定系统分 * 50% + LLM 判断分 * 50%。"
-  },
-  {
-    title: "赢家判定",
-    detail: "页面综合结果使用最终总分；低于 2 分的差距视为接近。"
-  }
-] as const;
-
-const dimensionFormulaRows = [
-  {
-    title: "追随者",
-    detail: "粉丝数使用对数缩放，50,000 粉丝作为 100 分基准。"
-  },
-  {
-    title: "仓库建设",
-    detail: "公开仓库数占 58%，近一年活跃仓库比例占 24%，非 fork 仓库比例占 18%。"
-  },
-  {
-    title: "项目影响力",
-    detail: "总 stars 占 52%，总 forks 占 28%，watchers 占 12%，代表项目最高 stars 占 8%。"
-  },
-  {
-    title: "开源贡献",
-    detail: "总贡献占 55%，PR/Issue/Review 占 25%，活跃天数占 20%。"
-  },
-  {
-    title: "活跃与稳定",
-    detail: "近一年活跃仓库占 38%，近 90 天更新占 22%，活跃天数占 22%，最近更新时间新鲜度占 18%。"
-  }
-] as const;
+const loadingSubtitles = messages.loadingSubtitles;
+const scoreFormulaRows = messages.scoreFormulaRows;
+const dimensionFormulaRows = messages.dimensionFormulaRows;
 
 const repositoryIssueUrl = "https://github.com/agoudbg/github-profile-competition/issues/new";
 
@@ -162,7 +119,7 @@ function formatNumber(value: number): string {
 
 function formatDate(value: string | null): string {
   if (!value) {
-    return "暂无";
+    return messages.common.notAvailable;
   }
 
   return new Intl.DateTimeFormat("zh-CN", {
@@ -176,7 +133,7 @@ function formatDateTime(value: string): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "未知时间";
+    return messages.common.unknownTime;
   }
 
   return new Intl.DateTimeFormat("zh-CN", {
@@ -204,7 +161,7 @@ function getTopLanguages(dataset: UserDataset): string {
     .slice(0, 3)
     .map(([language]) => language);
 
-  return languages.length > 0 ? languages.join(" / ") : "暂无";
+  return languages.length > 0 ? languages.join(" / ") : messages.common.notAvailable;
 }
 
 function buildComparisonUrl(left: string, right: string): string {
@@ -236,16 +193,8 @@ function buildGitHubAvatarUrl(username: string): string {
 
 function buildDataIssueUrl(usernames: [string, string]): string {
   const query = new URLSearchParams({
-    title: `Data accuracy issue: ${usernames[0]} vs ${usernames[1]}`,
-    body: [
-      `Compared users: ${usernames[0]} vs ${usernames[1]}`,
-      "",
-      "What seems inaccurate?",
-      "",
-      "Expected correction:",
-      "",
-      "Evidence URL (optional):"
-    ].join("\n")
+    title: messages.dataIssue.title(usernames[0], usernames[1]),
+    body: messages.dataIssue.body(usernames[0], usernames[1]).join("\n")
   });
 
   return `${repositoryIssueUrl}?${query.toString()}`;
@@ -255,7 +204,7 @@ function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
   const topRepositories = getTopRepositories(repositories);
 
   if (topRepositories.length === 0) {
-    return <span className="muted">暂无代表仓库</span>;
+    return <span className="muted">{messages.repository.empty}</span>;
   }
 
   return (
@@ -266,7 +215,7 @@ function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
             {repository.name}
           </a>
           <span className="repo-meta">
-            {formatNumber(repository.stargazersCount)} stars / {formatNumber(repository.forksCount)} forks
+            {messages.common.starsAndForks(formatNumber(repository.stargazersCount), formatNumber(repository.forksCount))}
           </span>
         </li>
       ))}
@@ -298,7 +247,7 @@ function TextWithFootnotes({
             className={footnoteNumber ? "footnote-ref" : "footnote-ref missing"}
             href={`#source-${id}`}
             key={`${part}-${index}`}
-            title={footnoteNumber ? `查看来源 ${id}` : "来源未列出"}
+            title={footnoteNumber ? messages.footnotes.viewSource(id) : messages.footnotes.missingSource}
           >
             [{footnoteNumber ?? "?"}]
           </a>
@@ -313,8 +262,8 @@ function EmptyState() {
     <section className="empty-panel" aria-live="polite">
       <div>
         <BarChart3 size={42} aria-hidden="true" />
-        <h2>等待开赛</h2>
-        <p>输入两个 GitHub 用户名后开始比拼。</p>
+        <h2>{messages.empty.title}</h2>
+        <p>{messages.empty.description}</p>
       </div>
     </section>
   );
@@ -354,7 +303,7 @@ function BattleOverlay({
   return (
     <div
       className={areAvatarsReady ? "battle-stage ready" : "battle-stage"}
-      aria-label={`${matchup} 开场动画`}
+      aria-label={messages.battle.ariaLabel(matchup)}
       onAnimationEnd={(event) => {
         if (event.currentTarget === event.target) {
           onComplete(animation.id);
@@ -365,7 +314,7 @@ function BattleOverlay({
         <div className={`battle-avatar battle-avatar-${avatar.side}`} key={avatar.side}>
           <Image
             src={avatar.avatarUrl}
-            alt={`${avatar.username} avatar`}
+            alt={messages.battle.avatarAlt(avatar.username)}
             width={92}
             height={92}
             priority
@@ -395,7 +344,7 @@ function LoadingState({
   users: [string, string] | null;
   subtitle: string;
 }) {
-  const matchup = users ? `${users[0]} vs ${users[1]}` : "GitHub 账号对比";
+  const matchup = users ? `${users[0]} vs ${users[1]}` : messages.loading.fallbackMatchup;
 
   return (
     <section className="loading-panel" aria-live="polite" aria-busy="true">
@@ -404,7 +353,7 @@ function LoadingState({
           <LoaderCircle className="spin" size={34} />
         </div>
         <p className="loading-kicker">{matchup}</p>
-        <h2>正在对比</h2>
+        <h2>{messages.loading.title}</h2>
         <p>{subtitle}</p>
       </div>
     </section>
@@ -416,7 +365,7 @@ function ErrorState({ message }: { message: string }) {
     <section className="error-panel" role="alert">
       <div>
         <AlertTriangle className="error-icon" size={42} aria-hidden="true" />
-        <h2>分析失败</h2>
+        <h2>{messages.error.title}</h2>
         <p>{message}</p>
       </div>
     </section>
@@ -447,24 +396,28 @@ function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]
   const shouldShowTimeline = isLoading || isExpanded;
 
   return (
-    <section className="timeline-panel" aria-label="模型行动时间线">
+    <section className="timeline-panel" aria-label={messages.timeline.ariaLabel}>
       <div className={shouldShowTimeline ? "panel-heading" : "panel-heading timeline-heading-collapsed"}>
         <div>
-          <h2 className="panel-title">模型行动时间线</h2>
-          <p className="panel-subtitle">展示模型可观察的资料读取、工具调用和证据摘要。</p>
+          <h2 className="panel-title">{messages.timeline.title}</h2>
+          <p className="panel-subtitle">{messages.timeline.subtitle}</p>
         </div>
         <div className="timeline-actions">
-          {isLoading ? <span className="live-badge">流式生成中</span> : <span className="live-badge done">已完成</span>}
+          {isLoading ? (
+            <span className="live-badge">{messages.timeline.streaming}</span>
+          ) : (
+            <span className="live-badge done">{messages.timeline.done}</span>
+          )}
           {!isLoading ? (
             <button
               aria-expanded={isExpanded}
               className="icon-text-button"
               type="button"
               onClick={() => setIsExpanded((current) => !current)}
-              title={isExpanded ? "隐藏模型思考" : "展开模型思考"}
+              title={isExpanded ? messages.timeline.hideTitle : messages.timeline.showTitle}
             >
               {isExpanded ? <ChevronUp size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}
-              {isExpanded ? "收起" : "展开"}
+              {isExpanded ? messages.timeline.collapse : messages.timeline.expand}
             </button>
           ) : null}
         </div>
@@ -484,7 +437,7 @@ function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]
                   {event.sourceIds?.length ? (
                     <div className="timeline-sources">
                       {event.sourceIds.map((sourceId) => (
-                        <span key={sourceId}>来源 {sourceId}</span>
+                        <span key={sourceId}>{messages.timeline.sourceLabel(sourceId)}</span>
                       ))}
                     </div>
                   ) : null}
@@ -516,7 +469,7 @@ function ComparisonRows({
       </div>
       <div className="comparison-table" role="table" aria-label={title}>
         <div className="comparison-row comparison-head" role="row">
-          <div role="columnheader">项目</div>
+          <div role="columnheader">{messages.comparisonRows.itemColumn}</div>
           <div role="columnheader">{leftUsername}</div>
           <div role="columnheader">{rightUsername}</div>
         </div>
@@ -565,7 +518,7 @@ function AccountSummary({
           <Image
             className="avatar"
             src={dataset.profile.avatarUrl}
-            alt={`${dataset.profile.login} avatar`}
+            alt={messages.account.avatarAlt(dataset.profile.login)}
             width={58}
             height={58}
           />
@@ -574,7 +527,7 @@ function AccountSummary({
           <h3>{dataset.profile.name ?? dataset.profile.login}</h3>
           <p>@{dataset.profile.login}</p>
         </div>
-        <a className="profile-link" href={dataset.profile.htmlUrl} target="_blank" rel="noreferrer" title="Open GitHub profile">
+        <a className="profile-link" href={dataset.profile.htmlUrl} target="_blank" rel="noreferrer" title={messages.account.profileLinkTitle}>
           <ExternalLink size={19} aria-hidden="true" />
         </a>
       </div>
@@ -582,22 +535,22 @@ function AccountSummary({
       <div className="score-line">
         <div>
           <div className="score-number">{score.totalScore}</div>
-          <div className="score-label">最终总分</div>
+          <div className="score-label">{messages.account.finalScore}</div>
         </div>
-        <div className="score-caption">{dataset.contributions.confidence} confidence</div>
+        <div className="score-caption">{messages.account.confidence(dataset.contributions.confidence)}</div>
       </div>
       <div className="score-bar" aria-hidden="true">
         <div className="score-fill" style={{ width: `${score.totalScore}%` }} />
       </div>
 
-      <div className="score-breakdown" aria-label={`${dataset.profile.login} score breakdown`}>
-        <span>系统 {score.systemScore}</span>
-        <span>LLM {score.llmScore ?? "暂无"}</span>
+      <div className="score-breakdown" aria-label={messages.account.scoreBreakdownLabel(dataset.profile.login)}>
+        <span>{messages.account.systemScore(score.systemScore)}</span>
+        <span>{messages.account.llmScore(score.llmScore ?? messages.common.notAvailable)}</span>
       </div>
 
       <div className="pill-row">
-        <span className="pill">{formatNumber(dataset.profile.followers)} 追随者</span>
-        <span className="pill">{formatNumber(dataset.profile.publicRepos)} 仓库</span>
+        <span className="pill">{messages.account.followers(formatNumber(dataset.profile.followers))}</span>
+        <span className="pill">{messages.account.repositories(formatNumber(dataset.profile.publicRepos))}</span>
         <span className="pill">{getTopLanguages(dataset)}</span>
       </div>
     </article>
@@ -652,24 +605,23 @@ function ResultShareActions({
     }
   }, [queueStatusReset, sharePath]);
 
-  const statusText =
-    shareStatus === "copied" ? "链接已复制" : shareStatus === "failed" ? "复制失败，请手动复制地址栏链接" : null;
+  const statusText = shareStatus === "copied" ? messages.share.copied : shareStatus === "failed" ? messages.share.failed : null;
 
   return (
     <>
-      <div className="share-panel" aria-label="分享比拼结果">
+      <div className="share-panel" aria-label={messages.share.ariaLabel}>
         <div>
-          <h3>分享结果</h3>
-          <p>比拼信息 {SHARE_VALID_DAYS} 天内有效。</p>
+          <h3>{messages.share.title}</h3>
+          <p>{messages.share.validDays(SHARE_VALID_DAYS)}</p>
         </div>
         <div className="share-actions">
-          <button className="icon-text-button" type="button" onClick={copyShareLink} title="复制结果链接">
+          <button className="icon-text-button" type="button" onClick={copyShareLink} title={messages.share.copyTitle}>
             {shareStatus === "copied" ? <Check size={17} aria-hidden="true" /> : <Copy size={17} aria-hidden="true" />}
-            复制链接
+            {messages.share.copy}
           </button>
-          <button className="icon-text-button" type="button" onClick={() => setIsShareImageOpen(true)} title="打开保存图片弹窗">
+          <button className="icon-text-button" type="button" onClick={() => setIsShareImageOpen(true)} title={messages.share.imageTitle}>
             <ImageDown size={17} aria-hidden="true" />
-            保存图片
+            {messages.share.image}
           </button>
         </div>
         {statusText ? <span className="share-status">{statusText}</span> : null}
@@ -691,10 +643,10 @@ function ScoreInfoModal({ onClose }: { onClose: () => void }) {
       >
         <div className="modal-heading">
           <div>
-            <h2 id="score-modal-title">总分构成</h2>
-            <p>最终总分由固定系统分和 LLM 判断分各占一半。</p>
+            <h2 id="score-modal-title">{messages.scoreInfo.title}</h2>
+            <p>{messages.scoreInfo.description}</p>
           </div>
-          <button className="icon-button" type="button" onClick={onClose} title="关闭">
+          <button className="icon-button" type="button" onClick={onClose} title={messages.scoreInfo.close}>
             <X size={18} aria-hidden="true" />
           </button>
         </div>
@@ -709,7 +661,7 @@ function ScoreInfoModal({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="formula-section">
-          <h3>固定系统分维度</h3>
+          <h3>{messages.scoreInfo.dimensionTitle}</h3>
           <div className="formula-list">
             {dimensionFormulaRows.map((row) => (
               <div className="formula-row" key={row.title}>
@@ -728,52 +680,56 @@ function OverviewComparison({ datasets }: { datasets: [UserDataset, UserDataset]
   const [left, right] = datasets;
   const rows: ComparisonRow[] = [
     {
-      label: "公开影响",
-      left: `${formatNumber(left.profile.followers)} 追随者 / ${formatNumber(left.profile.following)} 关注`,
-      right: `${formatNumber(right.profile.followers)} 追随者 / ${formatNumber(right.profile.following)} 关注`
+      label: messages.overview.publicImpact,
+      left: messages.overview.followersFollowing(formatNumber(left.profile.followers), formatNumber(left.profile.following)),
+      right: messages.overview.followersFollowing(formatNumber(right.profile.followers), formatNumber(right.profile.following))
     },
     {
-      label: "仓库规模",
-      left: `${formatNumber(left.profile.publicRepos)} repos / ${formatNumber(left.profile.publicGists)} gists`,
-      right: `${formatNumber(right.profile.publicRepos)} repos / ${formatNumber(right.profile.publicGists)} gists`
+      label: messages.overview.repositoryScale,
+      left: messages.overview.reposGists(formatNumber(left.profile.publicRepos), formatNumber(left.profile.publicGists)),
+      right: messages.overview.reposGists(formatNumber(right.profile.publicRepos), formatNumber(right.profile.publicGists))
     },
     {
-      label: "项目影响",
-      left: `${formatNumber(sumRepositories(left.repositories, (repository) => repository.stargazersCount))} stars / ${formatNumber(
-        sumRepositories(left.repositories, (repository) => repository.forksCount)
-      )} forks`,
-      right: `${formatNumber(sumRepositories(right.repositories, (repository) => repository.stargazersCount))} stars / ${formatNumber(
-        sumRepositories(right.repositories, (repository) => repository.forksCount)
-      )} forks`
+      label: messages.overview.projectImpact,
+      left: messages.common.starsAndForks(
+        formatNumber(sumRepositories(left.repositories, (repository) => repository.stargazersCount)),
+        formatNumber(sumRepositories(left.repositories, (repository) => repository.forksCount))
+      ),
+      right: messages.common.starsAndForks(
+        formatNumber(sumRepositories(right.repositories, (repository) => repository.stargazersCount)),
+        formatNumber(sumRepositories(right.repositories, (repository) => repository.forksCount))
+      )
     },
     {
-      label: "贡献信号",
-      left: `${formatNumber(left.contributions.totalContributions)} contributions / ${formatNumber(
-        left.contributions.activeDays
-      )} active days`,
-      right: `${formatNumber(right.contributions.totalContributions)} contributions / ${formatNumber(
-        right.contributions.activeDays
-      )} active days`
+      label: messages.overview.contributionSignals,
+      left: messages.overview.contributionSignalsValue(
+        formatNumber(left.contributions.totalContributions),
+        formatNumber(left.contributions.activeDays)
+      ),
+      right: messages.overview.contributionSignalsValue(
+        formatNumber(right.contributions.totalContributions),
+        formatNumber(right.contributions.activeDays)
+      )
     },
     {
-      label: "主要语言",
+      label: messages.overview.topLanguages,
       left: getTopLanguages(left),
       right: getTopLanguages(right)
     },
     {
-      label: "资料更新",
+      label: messages.overview.profileUpdated,
       left: formatDate(left.profile.updatedAt),
       right: formatDate(right.profile.updatedAt)
     },
     {
-      label: "代表仓库",
+      label: messages.overview.featuredRepositories,
       left: renderRepositoryList(left.repositories),
       right: renderRepositoryList(right.repositories)
     }
   ];
 
   return (
-    <ComparisonRows title="资料概览" leftUsername={left.profile.login} rightUsername={right.profile.login} rows={rows} />
+    <ComparisonRows title={messages.overview.title} leftUsername={left.profile.login} rightUsername={right.profile.login} rows={rows} />
   );
 }
 
@@ -782,11 +738,11 @@ function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
   const usernames = [left.username, right.username] as [string, string];
 
   return (
-    <section className="metric-table-wrap" aria-label="维度对比表格">
+    <section className="metric-table-wrap" aria-label={messages.metrics.ariaLabel}>
       <table className="metric-table">
         <thead>
           <tr>
-            <th>维度</th>
+            <th>{messages.metrics.dimension}</th>
             <th>{left.username}</th>
             <th>{right.username}</th>
           </tr>
@@ -809,7 +765,7 @@ function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
                 </td>
                 <td>
                   <span className="metric-score">{rightDimension?.score ?? 0}</span>
-                  <span className="dimension-detail">{rightDimension?.detail ?? "暂无"}</span>
+                  <span className="dimension-detail">{rightDimension?.detail ?? messages.common.notAvailable}</span>
                 </td>
               </tr>
             );
@@ -818,7 +774,7 @@ function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
       </table>
       <div className="metric-table-footer">
         <a className="dimension-issue-link" href={buildDataIssueUrl(usernames)} target="_blank" rel="noreferrer">
-          [数据不准确？]
+          {messages.metrics.reportIssue}
         </a>
       </div>
     </section>
@@ -836,7 +792,7 @@ function AnalysisSummaryCard({ result }: { result: CompareResponse }) {
     <section className="analysis-panel">
       <div className="panel-heading">
         <div>
-          <h2 className="panel-title">大模型评价</h2>
+          <h2 className="panel-title">{messages.analysis.summaryTitle}</h2>
           <p className="analysis-summary">
             <TextWithFootnotes text={result.llm.analysis.summary} sourceIndexById={sourceIndexById} />
           </p>
@@ -844,10 +800,10 @@ function AnalysisSummaryCard({ result }: { result: CompareResponse }) {
         {result.llm.analysis.winner ? (
           <div className="winner-row">
             <Trophy size={20} aria-hidden="true" />
-            模型观点：{result.llm.analysis.winner.username}
+            {messages.analysis.winnerLabel(result.llm.analysis.winner.username)}
           </div>
         ) : (
-          <div className="muted">模型认为双方接近</div>
+          <div className="muted">{messages.analysis.closeResult}</div>
         )}
       </div>
 
@@ -883,7 +839,7 @@ function AnalysisDetailCards({
       {result.llm.analysis.accountScores.length > 0 ? (
         <section className="analysis-panel">
           <div className="panel-heading">
-            <h2 className="panel-title">模型评分</h2>
+            <h2 className="panel-title">{messages.analysis.scoringTitle}</h2>
           </div>
           <div className="llm-score-grid">
             {result.llm.analysis.accountScores.map((item) => (
@@ -904,12 +860,14 @@ function AnalysisDetailCards({
       {result.llm.analysis.dimensionInsights.length > 0 ? (
         <section className="analysis-panel">
           <div className="panel-heading">
-            <h2 className="panel-title">维度洞察</h2>
+            <h2 className="panel-title">{messages.analysis.dimensionInsightsTitle}</h2>
           </div>
           <div className="llm-dimension-stack">
             {result.llm.analysis.dimensionInsights.map((item) => {
-              const leftInsight = item.accounts.find((account) => account.username === leftUsername)?.insight ?? "模型未提供该账号洞察。";
-              const rightInsight = item.accounts.find((account) => account.username === rightUsername)?.insight ?? "模型未提供该账号洞察。";
+              const leftInsight =
+                item.accounts.find((account) => account.username === leftUsername)?.insight ?? messages.analysis.missingAccountInsight;
+              const rightInsight =
+                item.accounts.find((account) => account.username === rightUsername)?.insight ?? messages.analysis.missingAccountInsight;
 
               return (
                 <article className="llm-dimension" key={item.dimension}>
@@ -943,15 +901,19 @@ function AnalysisDetailCards({
       {accountAnalysisCards.length > 0 ? (
         <section className="analysis-panel">
           <div className="panel-heading">
-            <h2 className="panel-title">账号分析</h2>
+            <h2 className="panel-title">{messages.analysis.accountAnalysisTitle}</h2>
           </div>
           <div className="account-analysis-grid">
             {accountAnalysisCards.map(({ username, accountAnalysis }) => (
               <article className="account-analysis" key={username}>
                 <h3>{username}</h3>
-                <AnalysisList title="优势" items={accountAnalysis.strengths} sourceIndexById={sourceIndexById} />
-                <AnalysisList title="风险" items={accountAnalysis.risks} sourceIndexById={sourceIndexById} />
-                <AnalysisList title="建议" items={accountAnalysis.recommendations} sourceIndexById={sourceIndexById} />
+                <AnalysisList title={messages.analysis.strengths} items={accountAnalysis.strengths} sourceIndexById={sourceIndexById} />
+                <AnalysisList title={messages.analysis.risks} items={accountAnalysis.risks} sourceIndexById={sourceIndexById} />
+                <AnalysisList
+                  title={messages.analysis.recommendations}
+                  items={accountAnalysis.recommendations}
+                  sourceIndexById={sourceIndexById}
+                />
               </article>
             ))}
           </div>
@@ -962,7 +924,7 @@ function AnalysisDetailCards({
         <section className="analysis-panel">
           {result.llm.analysis.caveats.length > 0 ? (
             <div>
-              <h2 className="panel-title">评估边界</h2>
+              <h2 className="panel-title">{messages.analysis.caveatsTitle}</h2>
               <ul className="caveat-list">
                 {result.llm.analysis.caveats.map((item) => (
                   <li key={item}>
@@ -975,7 +937,7 @@ function AnalysisDetailCards({
 
           {result.llm.analysis.sources.length > 0 ? (
             <div className="source-footnotes">
-              <h3>信息来源</h3>
+              <h3>{messages.analysis.sourcesTitle}</h3>
               <ol>
                 {result.llm.analysis.sources.map((source, index) => (
                   <li id={`source-${source.id}`} key={source.id}>
@@ -1033,14 +995,21 @@ function CacheNotice({
   return (
     <section className="cache-panel" aria-live="polite">
       <div>
-        <h2>已显示缓存结果</h2>
+        <h2>{messages.cache.title}</h2>
         <p>
-          缓存时间：<time dateTime={cachedAt}>{formatDateTime(cachedAt)}</time>
+          {messages.cache.cachedAtLabel}
+          <time dateTime={cachedAt}>{formatDateTime(cachedAt)}</time>
         </p>
       </div>
-      <button className="icon-text-button" type="button" onClick={onRegenerate} disabled={isLoading} title="重新生成比拼结果">
+      <button
+        className="icon-text-button"
+        type="button"
+        onClick={onRegenerate}
+        disabled={isLoading}
+        title={messages.cache.regenerateTitle}
+      >
         {isLoading ? <LoaderCircle className="spin" size={17} aria-hidden="true" /> : <RefreshCw size={17} aria-hidden="true" />}
-        重新生成
+        {messages.cache.regenerate}
       </button>
     </section>
   );
@@ -1249,19 +1218,19 @@ function Results({
       <section className="result-panel" ref={resultPanelRef}>
         <div className="panel-heading">
           <div className="title-with-action">
-            <h2 className="panel-title">综合结果</h2>
-            <button className="icon-text-button" type="button" onClick={() => setIsScoreInfoOpen(true)} title="查看总分构成">
+            <h2 className="panel-title">{messages.results.title}</h2>
+            <button className="icon-text-button" type="button" onClick={() => setIsScoreInfoOpen(true)} title={messages.results.scoreInfoTitle}>
               <Info size={17} aria-hidden="true" />
-              总分说明
+              {messages.results.scoreInfo}
             </button>
           </div>
           {winner ? (
             <div className="winner-row">
               <Trophy size={20} aria-hidden="true" />
-              最终总分赢家：{winner}
+              {messages.results.winner(winner)}
             </div>
           ) : (
-            <div className="muted">势均力敌</div>
+            <div className="muted">{messages.results.close}</div>
           )}
         </div>
         <div className="account-grid">
@@ -1373,12 +1342,12 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
 
       if (!response.ok) {
         const payload = (await response.json()) as unknown;
-        const message = isApiErrorResponse(payload) ? payload.error.message : "请求失败。";
+        const message = isApiErrorResponse(payload) ? payload.error.message : messages.error.requestFailed;
         throw new Error(message);
       }
 
       if (!response.body) {
-        throw new Error("浏览器不支持流式响应。");
+        throw new Error(messages.error.streamUnsupported);
       }
 
       const reader = response.body.getReader();
@@ -1420,7 +1389,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
         }
       }
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "请求失败。");
+      setError(submitError instanceof Error ? submitError.message : messages.error.requestFailed);
       setResult(null);
     } finally {
       setIsLoading(false);
@@ -1470,14 +1439,14 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
             <Swords size={24} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="brand-title">GitHub 账号比拼</h1>
-            <p className="brand-kicker">profile competition</p>
+            <h1 className="brand-title">{zhCN.app.title}</h1>
+            <p className="brand-kicker">{zhCN.app.tagline}</p>
           </div>
         </div>
 
         <form className="compare-form" onSubmit={handleSubmit}>
           <label className="field-group">
-            <span className="field-label">账号 A</span>
+            <span className="field-label">{messages.form.leftAccount}</span>
             <input
               className="text-input"
               value={form.left}
@@ -1489,7 +1458,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
           </label>
 
           <label className="field-group">
-            <span className="field-label">账号 B</span>
+            <span className="field-label">{messages.form.rightAccount}</span>
             <input
               className="text-input"
               value={form.right}
@@ -1501,23 +1470,23 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
           </label>
 
           <label className="field-group">
-            <span className="field-label">语言</span>
+            <span className="field-label">{messages.form.language}</span>
             <select
               className="select-input"
               value={form.locale}
               onChange={(event) => setForm((current) => ({ ...current, locale: event.target.value }))}
             >
-              <option value="zh-CN">中文</option>
+              <option value="zh-CN">{messages.form.zhCN}</option>
             </select>
           </label>
 
-          <button className="submit-button" type="submit" disabled={!canSubmit} title="Start comparison">
+          <button className="submit-button" type="submit" disabled={!canSubmit} title={messages.form.submitTitle}>
             {isLoading ? <LoaderCircle className="spin" size={18} aria-hidden="true" /> : <Search size={18} aria-hidden="true" />}
-            {isLoading ? "分析中" : "开始比拼"}
+            {isLoading ? messages.form.loading : messages.form.submit}
           </button>
         </form>
 
-        <p className="source-note">GitHub API 和公开页面提供上下文，评价内容始终由已配置的大模型生成。</p>
+        <p className="source-note">{messages.form.sourceNote}</p>
       </section>
 
       <section className="results-stack">

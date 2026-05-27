@@ -1,3 +1,5 @@
+import { zhCN } from "@/i18n/messages";
+
 type ErrorLogDetail = Record<string, unknown>;
 
 type AppErrorOptions = ErrorOptions & {
@@ -25,7 +27,7 @@ export function toErrorMessage(error: unknown): string {
     return error.message;
   }
 
-  return "Unknown error";
+  return zhCN.errors.unknown;
 }
 
 type SerializedError = {
@@ -89,8 +91,8 @@ export function getSafeClientMessage(error: unknown): string {
   }
 
   if (error instanceof AppError && error.code.startsWith("llm_")) {
-    return "Analysis failed. Please try again later.";
+    return zhCN.errors.analysisFailed;
   }
 
-  return "Request failed. Please try again later.";
+  return zhCN.errors.requestFailed;
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { zhCN } from "@/i18n/messages";
 import { AppError, logServerError, toErrorMessage } from "@/lib/errors";
 import type {
   ComparisonMetrics,
@@ -1047,7 +1048,7 @@ export async function generateLlmAnalysis(
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    throw new AppError("llm_not_configured", "LLM API key is required for profile evaluation.", 500);
+    throw new AppError("llm_not_configured", zhCN.llm.errors.apiKeyRequired, 500);
   }
 
   const baseUrl = (process.env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE_URL).replace(/\/$/, "");
@@ -1082,12 +1083,16 @@ export async function generateLlmAnalysis(
       const allowTools = toolCallCount < maxToolCalls;
       await emitTimeline?.({
         phase: "model",
-        title: allowTools ? (usedTool ? "模型继续整合证据" : "模型开始阅读资料") : "模型进入最终生成",
+        title: allowTools
+          ? usedTool
+            ? zhCN.llm.timeline.continueEvidenceTitle
+            : zhCN.llm.timeline.startReadingTitle
+          : zhCN.llm.timeline.finalGenerationTitle,
         detail: allowTools
           ? usedTool
-            ? "模型正在根据工具返回的项目、Issue/PR 与时间线资料生成下一步。"
-            : "模型正在阅读账号资料、项目列表、贡献时间线和可用工具说明。"
-          : "工具预算已完成，模型正在生成带脚注来源的最终评价。",
+            ? zhCN.llm.timeline.continueEvidenceDetail
+            : zhCN.llm.timeline.startReadingDetail
+          : zhCN.llm.timeline.finalGenerationDetail,
         status: "running"
       });
 
@@ -1116,7 +1121,7 @@ export async function generateLlmAnalysis(
           toolCallCount += 1;
           await emitTimeline?.({
             phase: "tool_call",
-            title: `模型调用工具：${toolCall.function.name}`,
+            title: zhCN.llm.timeline.toolCallTitle(toolCall.function.name),
             detail: toolCall.function.arguments || "{}",
             status: "running",
             toolName: toolCall.function.name
@@ -1140,7 +1145,7 @@ export async function generateLlmAnalysis(
 
           await emitTimeline?.({
             phase: "tool_result",
-            title: `工具返回：${toolCall.function.name}`,
+            title: zhCN.llm.timeline.toolResultTitle(toolCall.function.name),
             detail: result.summary,
             status: toolStatus,
             toolName: toolCall.function.name,
@@ -1167,7 +1172,7 @@ export async function generateLlmAnalysis(
 
       const content = message?.content;
       if (!content) {
-        throw new AppError("llm_empty_response", "LLM response was empty.", 502);
+        throw new AppError("llm_empty_response", zhCN.llm.errors.emptyResponse, 502);
       }
 
       if (!usedTool && round < MAX_TOOL_ROUNDS - 1) {
@@ -1190,8 +1195,8 @@ export async function generateLlmAnalysis(
             parseError instanceof z.ZodError ? summarizeZodIssues(parseError) : toErrorMessage(parseError);
           await emitTimeline?.({
             phase: "model",
-            title: "模型修正输出结构",
-            detail: `模型最终输出需要修正为结构化 JSON：${issueSummary}`,
+            title: zhCN.llm.timeline.repairOutputTitle,
+            detail: zhCN.llm.timeline.repairOutputDetail(issueSummary),
             status: "running"
           });
           toolCallCount = maxToolCalls;
@@ -1208,8 +1213,8 @@ export async function generateLlmAnalysis(
 
       await emitTimeline?.({
         phase: "final",
-        title: "模型生成最终评价",
-        detail: "模型已基于基础资料和工具返回内容生成带脚注来源的最终 JSON 评价。",
+        title: zhCN.llm.timeline.finalTitle,
+        detail: zhCN.llm.timeline.finalDetail,
         status: "completed",
         sourceIds: analysis.sources.map((source) => source.id)
       });
@@ -1220,7 +1225,7 @@ export async function generateLlmAnalysis(
       };
     }
 
-    throw new AppError("llm_tool_round_limit", "LLM did not finish within the tool call limit.", 502);
+    throw new AppError("llm_tool_round_limit", zhCN.llm.errors.toolRoundLimit, 502);
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -1230,11 +1235,11 @@ export async function generateLlmAnalysis(
       const issueSummary = summarizeZodIssues(error);
       throw new AppError(
         "llm_invalid_response",
-        `LLM response did not match the expected analysis schema. ${issueSummary}`,
+        zhCN.llm.errors.invalidResponse(issueSummary),
         502
       );
     }
 
-    throw new AppError("llm_generation_failed", `LLM generation failed: ${toErrorMessage(error)}`, 502);
+    throw new AppError("llm_generation_failed", zhCN.llm.errors.generationFailed(toErrorMessage(error)), 502);
   }
 }

@@ -10,6 +10,7 @@ import {
   ResponsiveContainer,
   Tooltip
 } from "recharts";
+import { zhCN } from "@/i18n/messages";
 import type { RadarPoint } from "@/lib/types";
 
 type RadarComparisonChartProps = {
@@ -21,7 +22,7 @@ const chartColors = ["#0f766e", "#c05621"] as const;
 
 export function RadarComparisonChart({ data, usernames }: RadarComparisonChartProps) {
   return (
-    <div className="chart-frame" role="img" aria-label={`${usernames[0]} 与 ${usernames[1]} 的雷达图对比`}>
+    <div className="chart-frame" role="img" aria-label={zhCN.radarChart.comparisonLabel(usernames[0], usernames[1])}>
       <ResponsiveContainer width="100%" height={360}>
         <RechartsRadarChart data={data} outerRadius="72%">
           <PolarGrid stroke="#d8d1c3" />

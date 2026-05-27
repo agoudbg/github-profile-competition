@@ -4,6 +4,7 @@ import { Download, X } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { zhCN } from "@/i18n/messages";
 import { SHARE_VALID_DAYS, type ShareAccount, type SharePayload } from "@/lib/share";
 
 const CANVAS_WIDTH = 1080;
@@ -17,6 +18,7 @@ const WARM = "#c05621";
 const SURFACE = "#f7f4ee";
 const ACCENT_SOFT = "#d7f2ec";
 const WARM_SOFT = "#f6dfc7";
+const messages = zhCN.shareImage;
 
 type AvatarMap = Record<string, HTMLImageElement | null>;
 
@@ -35,7 +37,7 @@ function formatDate(value: string): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return "未知日期";
+    return messages.unknownDate;
   }
 
   return new Intl.DateTimeFormat("zh-CN", {
@@ -146,7 +148,7 @@ function drawScoreCard(
     context.fillStyle = ACCENT_SOFT;
     roundRect(context, x + width - 140, y + 32, 96, 34, 17);
     context.fill();
-    drawText(context, "胜出", x + width - 92, y + 49, {
+    drawText(context, messages.winnerBadge, x + width - 92, y + 49, {
       color: ACCENT,
       font: "800 17px sans-serif",
       align: "center",
@@ -159,16 +161,16 @@ function drawScoreCard(
     font: "900 62px sans-serif",
     baseline: "middle"
   });
-  drawText(context, "最终总分", x + 38, y + 172, {
+  drawText(context, messages.finalScore, x + 38, y + 172, {
     color: INK_MUTED,
     font: "800 18px sans-serif"
   });
 
-  drawText(context, `系统 ${account.systemScore}`, x + width - 190, y + 138, {
+  drawText(context, messages.systemScore(account.systemScore), x + width - 190, y + 138, {
     color: INK_MUTED,
     font: "800 19px sans-serif"
   });
-  drawText(context, `LLM ${account.llmScore ?? "暂无"}`, x + width - 190, y + 172, {
+  drawText(context, messages.llmScore(account.llmScore ?? zhCN.comparison.common.notAvailable), x + width - 190, y + 172, {
     color: INK_MUTED,
     font: "800 19px sans-serif"
   });
@@ -230,10 +232,10 @@ function drawRadarChart(context: CanvasRenderingContext2D, left: ShareAccount, r
   const labelRadius = 238;
   const points = buildRadarPoints(left, right);
 
-  drawText(context, "维度分析图", 104, 604, {
+  drawText(context, messages.radarTitle, 104, 604, {
     font: "900 28px sans-serif"
   });
-  drawText(context, "与页面展示一致，五个维度按 0-100 分展开。", 104, 639, {
+  drawText(context, messages.radarSubtitle, 104, 639, {
     color: INK_MUTED,
     font: "18px sans-serif"
   });
@@ -270,7 +272,7 @@ function drawRadarChart(context: CanvasRenderingContext2D, left: ShareAccount, r
 
   for (const point of points) {
     const labelX = centerX + Math.cos(point.angle) * labelRadius;
-    const labelY = centerY + Math.sin(point.angle) * labelRadius - (point.label === "追随者" ? 10 : 0);
+    const labelY = centerY + Math.sin(point.angle) * labelRadius - (point.label === zhCN.dimensions.followers ? 10 : 0);
     const align: CanvasTextAlign = labelX < centerX - 30 ? "right" : labelX > centerX + 30 ? "left" : "center";
 
     drawText(context, point.label, labelX, labelY, {
@@ -329,8 +331,8 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
   const [left, right] = payload.accounts;
   const winner = payload.winner;
   const margin = Math.abs(left.totalScore - right.totalScore);
-  const winnerText = winner ? `${winner} 胜出` : "势均力敌";
-  const leadText = winner ? `总分领先 ${margin} 分` : "双方总分非常接近";
+  const winnerText = winner ? messages.winnerText(winner) : messages.closeWinnerText;
+  const leadText = winner ? messages.leadText(margin) : messages.closeLeadText;
 
   context.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
   context.fillStyle = BACKGROUND;
@@ -343,7 +345,7 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
   context.fillStyle = gradient;
   context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  drawText(context, "GitHub 账号比拼", 70, 86, {
+  drawText(context, zhCN.app.title, 70, 86, {
     color: INK_MUTED,
     font: "800 24px sans-serif"
   });
@@ -377,11 +379,11 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
   context.fillStyle = SURFACE;
   roundRect(context, 70, 1328, 940, 126, 18);
   context.fill();
-  drawText(context, "扫码打开比拼页面", 104, 1374, {
+  drawText(context, messages.qrTitle, 104, 1374, {
     color: INK,
     font: "900 24px sans-serif"
   });
-  drawText(context, `比拼信息 ${SHARE_VALID_DAYS} 天内有效，截止 ${formatDate(payload.expiresAt)}。`, 104, 1410, {
+  drawText(context, messages.validity(SHARE_VALID_DAYS, formatDate(payload.expiresAt)), 104, 1410, {
     color: INK_MUTED,
     font: "18px sans-serif",
     maxWidth: 660
@@ -431,7 +433,7 @@ export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
     async function renderImage() {
       const context = canvasRef.current?.getContext("2d");
       if (!context) {
-        setCanvasError("当前浏览器不支持 Canvas。");
+        setCanvasError(messages.canvasUnsupported);
         return;
       }
 
@@ -476,15 +478,15 @@ export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
       >
         <div className="modal-heading">
           <div>
-            <h2 id="share-image-title">保存结果图片</h2>
-            <p>比拼信息 {SHARE_VALID_DAYS} 天内有效。</p>
+            <h2 id="share-image-title">{messages.modalTitle}</h2>
+            <p>{messages.modalDescription(SHARE_VALID_DAYS)}</p>
           </div>
           <div className="share-image-modal-actions">
             <button className="icon-text-button" type="button" onClick={downloadImage}>
               <Download size={17} aria-hidden="true" />
-              下载 PNG
+              {messages.download}
             </button>
-            <button className="icon-button" type="button" onClick={onClose} title="关闭">
+            <button className="icon-button" type="button" onClick={onClose} title={messages.close}>
               <X size={18} aria-hidden="true" />
             </button>
           </div>
@@ -495,7 +497,7 @@ export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
             {canvasError}
           </div>
         ) : null}
-        <div className="share-image-canvas-wrap" aria-label="分享图片预览">
+        <div className="share-image-canvas-wrap" aria-label={messages.previewLabel}>
           <canvas ref={canvasRef} width={CANVAS_WIDTH} height={CANVAS_HEIGHT} />
         </div>
       </section>

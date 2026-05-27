@@ -1,3 +1,4 @@
+import { zhCN } from "@/i18n/messages";
 import { AppError, logServerError, toErrorMessage } from "@/lib/errors";
 import type {
   ContributionTimelineEntry,
@@ -183,37 +184,22 @@ function isGitHubRateLimitFailure(response: Response, detail: GitHubErrorDetail)
 
 function createGitHubRequestError(response: Response, detail: GitHubErrorDetail): AppError {
   if (response.status === 404) {
-    return new AppError("github_user_not_found", "GitHub user was not found.", 404, { detail });
+    return new AppError("github_user_not_found", zhCN.githubErrors.userNotFound, 404, { detail });
   }
 
   if (response.status === 401) {
-    return new AppError(
-      "github_bad_credentials",
-      "GitHub token was rejected by GitHub. Check GITHUB_TOKEN and backend logs.",
-      401,
-      { detail }
-    );
+    return new AppError("github_bad_credentials", zhCN.githubErrors.badCredentials, 401, { detail });
   }
 
   if (isGitHubRateLimitFailure(response, detail)) {
-    return new AppError(
-      "github_rate_limited",
-      "GitHub API rate limit was reached. Check the backend logs for the raw GitHub response.",
-      429,
-      { detail }
-    );
+    return new AppError("github_rate_limited", zhCN.githubErrors.rateLimited, 429, { detail });
   }
 
   if (response.status === 403) {
-    return new AppError(
-      "github_request_forbidden",
-      "GitHub API request was forbidden. Check GITHUB_TOKEN permissions and backend logs.",
-      403,
-      { detail }
-    );
+    return new AppError("github_request_forbidden", zhCN.githubErrors.forbidden, 403, { detail });
   }
 
-  return new AppError("github_request_failed", `GitHub request failed with status ${response.status}.`, 502, {
+  return new AppError("github_request_failed", zhCN.githubErrors.requestFailed(response.status), 502, {
     detail
   });
 }
@@ -485,7 +471,7 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
   if (!collection || payload.errors?.length) {
     logServerError(
       "[github] GraphQL contribution response did not include usable contribution data; falling back to public events.",
-      new AppError("github_graphql_unusable_response", "GitHub GraphQL contribution response was not usable.", 502, {
+      new AppError("github_graphql_unusable_response", zhCN.githubErrors.graphQlUnusableResponse, 502, {
         detail: {
           request: {
             method: "POST",

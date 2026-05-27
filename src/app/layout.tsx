@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import { AppHeader } from "@/components/AppHeader";
+import { zhCN } from "@/i18n/messages";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "GitHub Profile Competition",
-  description: "Compare two GitHub profiles with public metrics and AI analysis."
+  title: zhCN.metadata.title,
+  description: zhCN.metadata.description
 };
 
 export const viewport: Viewport = {

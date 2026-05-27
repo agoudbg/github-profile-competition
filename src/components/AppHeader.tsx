@@ -4,26 +4,28 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useId, useState } from "react";
 import { BarChart3, ExternalLink, GitCompareArrows, Menu, Swords, X } from "lucide-react";
+import { zhCN } from "@/i18n/messages";
 
 const repositoryUrl = "https://github.com/agoudbg/github-profile-competition";
+const messages = zhCN.appHeader;
 
 const navigationItems = [
   {
     kind: "internal",
     href: "/",
-    label: "账号比拼",
+    label: messages.navigation.compare,
     icon: GitCompareArrows
   },
   {
     kind: "internal",
     href: "/leaderboard",
-    label: "排行榜",
+    label: messages.navigation.leaderboard,
     icon: BarChart3
   },
   {
     kind: "external",
     href: repositoryUrl,
-    label: "GitHub",
+    label: messages.navigation.github,
     icon: ExternalLink
   }
 ] as const;
@@ -42,25 +44,25 @@ export function AppHeader() {
               <Swords size={20} aria-hidden="true" />
             </span>
             <span>
-              <strong>GitHub 账号比拼</strong>
-              <small>profile competition</small>
+              <strong>{zhCN.app.title}</strong>
+              <small>{zhCN.app.tagline}</small>
             </span>
           </Link>
 
           <button
             aria-controls={navigationId}
             aria-expanded={isMenuOpen}
-            aria-label={isMenuOpen ? "关闭菜单" : "打开菜单"}
+            aria-label={isMenuOpen ? messages.menu.close : messages.menu.open}
             className="app-menu-button"
             onClick={() => setIsMenuOpen((open) => !open)}
             type="button"
           >
             {isMenuOpen ? <X size={17} aria-hidden="true" /> : <Menu size={17} aria-hidden="true" />}
-            <span>Menu</span>
+            <span>{messages.menu.label}</span>
           </button>
         </div>
 
-        <nav className={isMenuOpen ? "app-nav app-nav-open" : "app-nav"} id={navigationId} aria-label="主导航">
+        <nav className={isMenuOpen ? "app-nav app-nav-open" : "app-nav"} id={navigationId} aria-label={messages.navigationLabel}>
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive =

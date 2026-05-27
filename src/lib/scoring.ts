@@ -1,4 +1,4 @@
-import { getMessages } from "@/i18n/messages";
+import { getMessages, zhCN } from "@/i18n/messages";
 import type {
   AccountScore,
   ComparisonMetrics,
@@ -61,7 +61,7 @@ function scoreFollowers(dataset: UserDataset): Pick<ScoreDimension, "score" | "r
   return {
     score: logScaleScore(followers, 50_000),
     rawValue: followers,
-    detail: `${formatNumber(followers)} 位追随者，关注 ${formatNumber(dataset.profile.following)} 人。`
+    detail: zhCN.scoring.followersDetail(formatNumber(followers), formatNumber(dataset.profile.following))
   };
 }
 
@@ -77,9 +77,7 @@ function scoreRepositories(dataset: UserDataset, now: Date): Pick<ScoreDimension
   return {
     score: clampScore(score),
     rawValue: total,
-    detail: `${formatNumber(total)} 个公开仓库，近一年活跃 ${formatNumber(active)} 个，非 fork 占比 ${Math.round(
-      ownedRatio * 100
-    )}%。`
+    detail: zhCN.scoring.repositoriesDetail(formatNumber(total), formatNumber(active), Math.round(ownedRatio * 100))
   };
 }
 
@@ -97,9 +95,7 @@ function scoreProjectImpact(dataset: UserDataset): Pick<ScoreDimension, "score" 
   return {
     score: clampScore(score),
     rawValue: stars + forks,
-    detail: `${formatNumber(stars)} stars、${formatNumber(forks)} forks，代表项目最高 ${formatNumber(
-      topRepoStars
-    )} stars。`
+    detail: zhCN.scoring.projectImpactDetail(formatNumber(stars), formatNumber(forks), formatNumber(topRepoStars))
   };
 }
 
@@ -113,9 +109,13 @@ function scoreOpenSourceContribution(dataset: UserDataset): Pick<ScoreDimension,
   return {
     score: clampScore(contributionScore),
     rawValue: stats.totalContributions,
-    detail: `${formatNumber(stats.totalContributions)} 次贡献，PR ${formatNumber(stats.pullRequests)}、Issue ${formatNumber(
-      stats.issues
-    )}、Review ${formatNumber(stats.reviews)}，置信度 ${stats.confidence}。`
+    detail: zhCN.scoring.contributionDetail(
+      formatNumber(stats.totalContributions),
+      formatNumber(stats.pullRequests),
+      formatNumber(stats.issues),
+      formatNumber(stats.reviews),
+      stats.confidence
+    )
   };
 }
 
@@ -138,9 +138,7 @@ function scoreActivity(dataset: UserDataset, now: Date): Pick<ScoreDimension, "s
   return {
     score: clampScore(score),
     rawValue: active + dataset.contributions.recentEvents,
-    detail: `近一年活跃仓库 ${formatNumber(active)} 个，近 90 天更新 ${formatNumber(updatedRecently)} 个，活跃天数 ${formatNumber(
-      dataset.contributions.activeDays
-    )}。`
+    detail: zhCN.scoring.activityDetail(formatNumber(active), formatNumber(updatedRecently), formatNumber(dataset.contributions.activeDays))
   };
 }
 
@@ -175,7 +173,7 @@ function buildWinner(accounts: AccountScore[]): WinnerResult {
   return {
     username: first.username,
     margin,
-    reason: `${first.username} 综合分高出 ${margin} 分，优势主要来自得分更高的维度组合。`
+    reason: zhCN.scoring.winnerReason(first.username, margin)
   };
 }
 

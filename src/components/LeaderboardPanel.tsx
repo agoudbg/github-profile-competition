@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, LoaderCircle, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
+import { zhCN } from "@/i18n/messages";
 import type { LeaderboardEntry, LeaderboardResponse } from "@/lib/types";
+
+const messages = zhCN.leaderboard;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -42,7 +45,7 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
         <Image
           className="leaderboard-avatar"
           src={entry.avatarUrl}
-          alt={`${entry.username} avatar`}
+          alt={messages.row.avatarAlt(entry.username)}
           width={36}
           height={36}
         />
@@ -55,9 +58,9 @@ function LeaderboardRow({ entry }: { entry: LeaderboardEntry }) {
       </div>
       <div className="leaderboard-total">
         <strong>{entry.totalScore}</strong>
-        <span>系统总分</span>
+        <span>{messages.row.systemTotal}</span>
       </div>
-      <div className="leaderboard-dimensions" aria-label={`${entry.username} dimension scores`}>
+      <div className="leaderboard-dimensions" aria-label={messages.row.dimensionScoresLabel(entry.username)}>
         {entry.dimensions.map((dimension) => (
           <span key={dimension.key}>
             <b>{dimension.label}</b>
@@ -92,12 +95,12 @@ export function LeaderboardPanel() {
       const payload = (await response.json()) as unknown;
 
       if (!response.ok || !isLeaderboardResponse(payload)) {
-        throw new Error("排行榜加载失败。");
+        throw new Error(messages.error.loadFailed);
       }
 
       return payload;
     } catch (error) {
-      throw error instanceof Error ? error : new Error("排行榜加载失败。");
+      throw error instanceof Error ? error : new Error(messages.error.loadFailed);
     }
   }, []);
 
@@ -109,7 +112,7 @@ export function LeaderboardPanel() {
       try {
         setLeaderboard(await fetchLeaderboardPage(pageToLoad));
       } catch (loadError) {
-        setLeaderboardError(loadError instanceof Error ? loadError.message : "排行榜加载失败。");
+        setLeaderboardError(loadError instanceof Error ? loadError.message : messages.error.loadFailed);
       } finally {
         setIsLeaderboardLoading(false);
       }
@@ -128,7 +131,7 @@ export function LeaderboardPanel() {
       })
       .catch((loadError: unknown) => {
         if (isActive) {
-          setLeaderboardError(loadError instanceof Error ? loadError.message : "排行榜加载失败。");
+          setLeaderboardError(loadError instanceof Error ? loadError.message : messages.error.loadFailed);
         }
       })
       .finally(() => {
@@ -148,18 +151,18 @@ export function LeaderboardPanel() {
   }
 
   return (
-    <section className="leaderboard-panel" aria-label="排行榜">
+    <section className="leaderboard-panel" aria-label={messages.ariaLabel}>
       <div className="panel-heading leaderboard-heading">
         <div>
-          <h1 className="panel-title">排行榜</h1>
-          <p className="panel-subtitle">系统分榜单，不包含 LLM 判断分；历史记录保留，排名按每个用户最新一次计算。</p>
+          <h1 className="panel-title">{messages.title}</h1>
+          <p className="panel-subtitle">{messages.subtitle}</p>
         </div>
         <button
           className="icon-button"
           type="button"
           onClick={() => void loadLeaderboardPage(leaderboardPage)}
           disabled={isLeaderboardLoading}
-          title="刷新排行榜"
+          title={messages.refreshTitle}
         >
           {isLeaderboardLoading ? <LoaderCircle className="spin" size={18} aria-hidden="true" /> : <RefreshCw size={18} aria-hidden="true" />}
         </button>
@@ -174,15 +177,13 @@ export function LeaderboardPanel() {
           ))}
         </div>
       ) : (
-        <div className="leaderboard-empty">{isLeaderboardLoading ? "排行榜加载中" : "暂无排行榜记录"}</div>
+        <div className="leaderboard-empty">{isLeaderboardLoading ? messages.loading : messages.empty}</div>
       )}
 
       <div className="leaderboard-footer">
         <div className="leaderboard-meta">
-          <span>
-            {formatNumber(total)} / {formatNumber(leaderboard?.maxEntries ?? 1000)} 名
-          </span>
-          {leaderboard?.isTruncated ? <span>仅展示前 {formatNumber(leaderboard.maxEntries)} 名</span> : null}
+          <span>{messages.count(formatNumber(total), formatNumber(leaderboard?.maxEntries ?? 1000))}</span>
+          {leaderboard?.isTruncated ? <span>{messages.truncated(formatNumber(leaderboard.maxEntries))}</span> : null}
         </div>
         <div className="leaderboard-pagination">
           <button
@@ -190,22 +191,20 @@ export function LeaderboardPanel() {
             type="button"
             onClick={() => handlePageChange(page - 1)}
             disabled={!canGoPrevious}
-            title="上一页"
+            title={messages.previousTitle}
           >
             <ChevronLeft size={16} aria-hidden="true" />
-            上一页
+            {messages.previous}
           </button>
-          <span>
-            第 {formatNumber(page)} / {formatNumber(totalPages)} 页
-          </span>
+          <span>{messages.page(formatNumber(page), formatNumber(totalPages))}</span>
           <button
             className="icon-text-button"
             type="button"
             onClick={() => handlePageChange(page + 1)}
             disabled={!canGoNext}
-            title="下一页"
+            title={messages.nextTitle}
           >
-            下一页
+            {messages.next}
             <ChevronRight size={16} aria-hidden="true" />
           </button>
         </div>

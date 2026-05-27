@@ -1,3 +1,4 @@
+import { zhCN } from "@/i18n/messages";
 import { collectGitHubUserDataset } from "@/lib/github";
 import { generateLlmAnalysis } from "@/lib/llm";
 import { calculateComparisonMetrics, composeComparisonMetricsWithLlmScores } from "@/lib/scoring";
@@ -42,8 +43,8 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
 
   await recorder.emit({
     phase: "data",
-    title: "开始收集 GitHub 数据",
-    detail: `准备比较 ${request.users[0]} 与 ${request.users[1]}，同时收集 profile、仓库、贡献时间线和公开页面上下文。`,
+    title: zhCN.compareTimeline.collectStartTitle,
+    detail: zhCN.compareTimeline.collectStartDetail(request.users[0], request.users[1]),
     status: "running"
   });
 
@@ -53,8 +54,13 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
 
   await recorder.emit({
     phase: "data",
-    title: "GitHub 数据收集完成",
-    detail: `已收集 ${datasets[0].repositories.length} + ${datasets[1].repositories.length} 个仓库，以及 ${datasets[0].contributionTimeline.length} + ${datasets[1].contributionTimeline.length} 条近期贡献时间线。`,
+    title: zhCN.compareTimeline.collectDoneTitle,
+    detail: zhCN.compareTimeline.collectDoneDetail(
+      datasets[0].repositories.length,
+      datasets[1].repositories.length,
+      datasets[0].contributionTimeline.length,
+      datasets[1].contributionTimeline.length
+    ),
     status: "completed",
     sourceIds: datasets.flatMap((dataset) => [`profile-${dataset.profile.login}`, `repositories-${dataset.profile.login}`, `timeline-${dataset.profile.login}`])
   });
@@ -63,8 +69,8 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
 
   await recorder.emit({
     phase: "data",
-    title: "本地指标计算完成",
-    detail: "已生成追随者、仓库建设、项目影响力、开源贡献、活跃与稳定五个维度的评分，作为模型评估输入。",
+    title: zhCN.compareTimeline.metricsDoneTitle,
+    detail: zhCN.compareTimeline.metricsDoneDetail,
     status: "completed"
   });
 
@@ -77,7 +83,7 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
   } catch (error) {
     await recorder.emit({
       phase: "error",
-      title: "模型生成失败",
+      title: zhCN.compareTimeline.modelFailedTitle,
       detail: getSafeClientMessage(error),
       status: "error"
     });
