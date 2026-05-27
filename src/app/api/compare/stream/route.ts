@@ -3,14 +3,15 @@ import { getAbuseRetryAfterSeconds, guardCompareRequest } from "@/lib/abuse";
 import { AppError, getSafeClientMessage, logServerError } from "@/lib/errors";
 import { compareGitHubProfiles } from "@/lib/compare";
 import { getCachedComparisonResult, saveComparisonResultToCache } from "@/lib/comparisonCache";
+import { normalizeLocaleCode } from "@/i18n/messages";
 import { readJsonBody } from "@/lib/requestBody";
 import { parseCompareRequest } from "@/lib/validation";
-import type { ApiErrorResponse, CompareRequest, CompareStreamEvent } from "@/lib/types";
+import type { ApiErrorResponse, CompareRequest, CompareStreamEvent, LocaleCode } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-function normalizeError(error: unknown): ApiErrorResponse["error"] {
+function normalizeError(error: unknown, locale: LocaleCode = "zh-CN"): ApiErrorResponse["error"] {
   if (error instanceof ZodError) {
     return {
       code: "invalid_request",
@@ -22,16 +23,25 @@ function normalizeError(error: unknown): ApiErrorResponse["error"] {
   if (error instanceof AppError) {
     return {
       code: error.code,
-      message: getSafeClientMessage(error),
+      message: getSafeClientMessage(error, locale),
       status: error.status
     };
   }
 
   return {
     code: "internal_error",
-    message: getSafeClientMessage(error),
+    message: getSafeClientMessage(error, locale),
     status: 500
   };
+}
+
+function getRequestLocale(input: unknown): LocaleCode {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    return "zh-CN";
+  }
+
+  const locale = (input as { locale?: unknown }).locale;
+  return typeof locale === "string" ? normalizeLocaleCode(locale) : "zh-CN";
 }
 
 function jsonErrorResponse(error: ApiErrorResponse["error"], retryAfterSeconds?: number): Response {
@@ -67,11 +77,13 @@ function streamResultResponse(result: CompareStreamEvent & { type: "result" }): 
 
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
+  let locale: LocaleCode = "zh-CN";
 
   try {
     body = await readJsonBody(request);
+    locale = getRequestLocale(body);
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, locale);
     return jsonErrorResponse(normalized, getAbuseRetryAfterSeconds(error));
   }
 
@@ -79,8 +91,9 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     parsedRequest = parseCompareRequest(body);
+    locale = parsedRequest.locale ?? "zh-CN";
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, locale);
     return jsonErrorResponse(normalized, getAbuseRetryAfterSeconds(error));
   }
 
@@ -97,7 +110,7 @@ export async function POST(request: Request): Promise<Response> {
   try {
     releaseAbuseGuard = guardCompareRequest(request);
   } catch (error) {
-    const normalized = normalizeError(error);
+    const normalized = normalizeError(error, locale);
     return streamErrorResponse(normalized, getAbuseRetryAfterSeconds(error));
   }
 
@@ -123,7 +136,7 @@ export async function POST(request: Request): Promise<Response> {
           result
         });
       } catch (error) {
-        const normalized = normalizeError(error);
+        const normalized = normalizeError(error, parsedRequest.locale ?? "zh-CN");
         logServerError("[api/compare/stream] Compare request failed.", error, {
           errorCode: normalized.code,
           status: normalized.status,

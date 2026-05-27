@@ -1,4 +1,5 @@
-import { zhCN } from "@/i18n/messages";
+import { getMessages } from "@/i18n/messages";
+import type { LocaleCode } from "@/lib/types";
 
 type ErrorLogDetail = Record<string, unknown>;
 
@@ -22,12 +23,12 @@ export class AppError extends Error {
   }
 }
 
-export function toErrorMessage(error: unknown): string {
+export function toErrorMessage(error: unknown, locale: LocaleCode = "zh-CN"): string {
   if (error instanceof Error) {
     return error.message;
   }
 
-  return zhCN.errors.unknown;
+  return getMessages(locale).errors.unknown;
 }
 
 type SerializedError = {
@@ -85,14 +86,16 @@ export function logServerError(message: string, error: unknown, detail: ErrorLog
   });
 }
 
-export function getSafeClientMessage(error: unknown): string {
+export function getSafeClientMessage(error: unknown, locale: LocaleCode = "zh-CN"): string {
+  const messages = getMessages(locale).errors;
+
   if (error instanceof AppError && error.status < 500) {
     return error.message;
   }
 
   if (error instanceof AppError && error.code.startsWith("llm_")) {
-    return zhCN.errors.analysisFailed;
+    return messages.analysisFailed;
   }
 
-  return zhCN.errors.requestFailed;
+  return messages.requestFailed;
 }

@@ -33,4 +33,21 @@ describe("AppHeader", () => {
     expect(screen.getByRole("button", { name: "关闭菜单" })).toHaveAttribute("aria-expanded", "true");
     expect(navigation).toHaveClass("app-nav-open");
   });
+
+  it("updates labels when the app locale changes", () => {
+    render(<AppHeader />);
+
+    fireEvent(
+      window,
+      new CustomEvent("app-locale-change", {
+        detail: {
+          locale: "en-US"
+        }
+      })
+    );
+
+    expect(screen.getByRole("link", { name: /GitHub Profile Competition/ })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Compare" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Leaderboard" })).toHaveClass("active");
+  });
 });

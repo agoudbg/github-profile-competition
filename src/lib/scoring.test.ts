@@ -116,6 +116,31 @@ describe("calculateComparisonMetrics", () => {
     expect(metrics.accounts[0]?.llmScore).toBeNull();
   });
 
+  it("uses English dimension labels and details for en-US metrics", () => {
+    const metrics = calculateComparisonMetrics(
+      [
+        dataset("alpha", {
+          profile: {
+            ...dataset("alpha", {}).profile,
+            followers: 20_000,
+            publicRepos: 120
+          },
+          repositories: [
+            repository({ id: 1, stargazersCount: 20_000, forksCount: 2_000, watchersCount: 400 }),
+            repository({ id: 2, name: "tool", fullName: "alpha/tool", stargazersCount: 4_000, forksCount: 300 })
+          ]
+        }),
+        dataset("beta", {})
+      ],
+      "en-US",
+      new Date("2026-05-25T00:00:00Z")
+    );
+
+    expect(metrics.accounts[0]?.dimensions[0]?.label).toBe("Followers");
+    expect(metrics.accounts[0]?.dimensions[0]?.detail).toContain("followers");
+    expect(metrics.winner?.reason).toContain("leads by");
+  });
+
   it("combines fixed system scores with LLM scores", () => {
     const metrics = calculateComparisonMetrics(
       [

@@ -3,11 +3,11 @@ import type { LocaleCode } from "@/lib/types";
 const zhCNMessages = {
   app: {
     title: "GitHub 账号比拼",
-    tagline: "profile competition"
+    tagline: "账号实力对比"
   },
   metadata: {
-    title: "GitHub Profile Competition",
-    description: "Compare two GitHub profiles with public metrics and AI analysis."
+    title: "GitHub 账号比拼",
+    description: "用公开指标和 AI 分析对比两个 GitHub 账号。"
   },
   dimensions: {
     followers: "追随者",
@@ -30,7 +30,7 @@ const zhCNMessages = {
       github: "GitHub"
     },
     menu: {
-      label: "Menu",
+      label: "菜单",
       open: "打开菜单",
       close: "关闭菜单"
     },
@@ -98,15 +98,15 @@ const zhCNMessages = {
       }
     ],
     dataIssue: {
-      title: (left: string, right: string) => `Data accuracy issue: ${left} vs ${right}`,
+      title: (left: string, right: string) => `数据准确性问题：${left} vs ${right}`,
       body: (left: string, right: string) => [
-        `Compared users: ${left} vs ${right}`,
+        `对比账号：${left} vs ${right}`,
         "",
-        "What seems inaccurate?",
+        "哪些数据看起来不准确？",
         "",
-        "Expected correction:",
+        "期望修正：",
         "",
-        "Evidence URL (optional):"
+        "证据链接（可选）："
       ]
     },
     repository: {
@@ -122,7 +122,7 @@ const zhCNMessages = {
     },
     battle: {
       ariaLabel: (matchup: string) => `${matchup} 开场动画`,
-      avatarAlt: (username: string) => `${username} avatar`
+      avatarAlt: (username: string) => `${username} 头像`
     },
     loading: {
       fallbackMatchup: "GitHub 账号对比",
@@ -149,15 +149,15 @@ const zhCNMessages = {
       itemColumn: "项目"
     },
     account: {
-      profileLinkTitle: "Open GitHub profile",
-      avatarAlt: (username: string) => `${username} avatar`,
+      profileLinkTitle: "打开 GitHub 主页",
+      avatarAlt: (username: string) => `${username} 头像`,
       finalScore: "最终总分",
-      confidence: (confidence: string) => `${confidence} confidence`,
+      confidence: (confidence: string) => `置信度 ${confidence}`,
       systemScore: (score: number) => `系统 ${score}`,
       llmScore: (score: number | string) => `LLM ${score}`,
       followers: (count: string) => `${count} 追随者`,
       repositories: (count: string) => `${count} 仓库`,
-      scoreBreakdownLabel: (username: string) => `${username} score breakdown`
+      scoreBreakdownLabel: (username: string) => `${username} 得分构成`
     },
     share: {
       copied: "链接已复制",
@@ -181,7 +181,7 @@ const zhCNMessages = {
       followersFollowing: (followers: string, following: string) => `${followers} 追随者 / ${following} 关注`,
       repositoryScale: "仓库规模",
       repositoryScaleValue: (repos: string, active: string) => `${repos} 个公开仓库 / 近一年活跃 ${active} 个`,
-      reposGists: (repos: string, gists: string) => `${repos} repos / ${gists} gists`,
+      reposGists: (repos: string, gists: string) => `${repos} 个仓库 / ${gists} 个 Gist`,
       projectImpact: "项目影响",
       contributionSignals: "贡献信号",
       contributionSignalsValue: (total: string, activeDays: string) => `${total} 次贡献 / ${activeDays} 个活跃日`,
@@ -227,7 +227,8 @@ const zhCNMessages = {
       rightAccount: "账号 B",
       language: "语言",
       zhCN: "中文",
-      submitTitle: "Start comparison",
+      enUS: "英文",
+      submitTitle: "开始比拼",
       loading: "分析中",
       submit: "开始比拼",
       sourceNote: "GitHub API 和公开页面提供上下文，评价内容始终由已配置的大模型生成。"
@@ -235,9 +236,9 @@ const zhCNMessages = {
   },
   leaderboard: {
     row: {
-      avatarAlt: (username: string) => `${username} avatar`,
+      avatarAlt: (username: string) => `${username} 头像`,
       systemTotal: "系统总分",
-      dimensionScoresLabel: (username: string) => `${username} dimension scores`
+      dimensionScoresLabel: (username: string) => `${username} 维度分数`
     },
     error: {
       loadFailed: "排行榜加载失败。"
@@ -279,26 +280,26 @@ const zhCNMessages = {
   },
   validation: {
     githubUsername: {
-      required: "GitHub username is required.",
-      tooLong: "GitHub username must be 39 characters or fewer.",
-      invalidCharacters: "GitHub username can only contain letters, numbers, and hyphens.",
-      edgeHyphen: "GitHub username cannot start or end with a hyphen.",
-      consecutiveHyphens: "GitHub username cannot contain consecutive hyphens."
+      required: "GitHub 用户名不能为空。",
+      tooLong: "GitHub 用户名不能超过 39 个字符。",
+      invalidCharacters: "GitHub 用户名只能包含字母、数字和连字符。",
+      edgeHyphen: "GitHub 用户名不能以连字符开头或结尾。",
+      consecutiveHyphens: "GitHub 用户名不能包含连续连字符。"
     },
-    compareDifferentUsers: "Please compare two different GitHub usernames."
+    compareDifferentUsers: "请对比两个不同的 GitHub 用户名。"
   },
   errors: {
-    unknown: "Unknown error",
-    analysisFailed: "Analysis failed. Please try again later.",
-    requestFailed: "Request failed. Please try again later."
+    unknown: "未知错误",
+    analysisFailed: "分析失败，请稍后重试。",
+    requestFailed: "请求失败，请稍后重试。"
   },
   githubErrors: {
-    userNotFound: "GitHub user was not found.",
-    badCredentials: "GitHub token was rejected by GitHub. Check GITHUB_TOKEN and backend logs.",
-    rateLimited: "GitHub API rate limit was reached. Check the backend logs for the raw GitHub response.",
-    forbidden: "GitHub API request was forbidden. Check GITHUB_TOKEN permissions and backend logs.",
-    requestFailed: (status: number) => `GitHub request failed with status ${status}.`,
-    graphQlUnusableResponse: "GitHub GraphQL contribution response was not usable."
+    userNotFound: "未找到 GitHub 用户。",
+    badCredentials: "GitHub 拒绝了当前 token，请检查 GITHUB_TOKEN 和后端日志。",
+    rateLimited: "GitHub API 已达到速率限制，请在后端日志中查看原始 GitHub 响应。",
+    forbidden: "GitHub API 请求被拒绝，请检查 GITHUB_TOKEN 权限和后端日志。",
+    requestFailed: (status: number) => `GitHub 请求失败，状态码 ${status}。`,
+    graphQlUnusableResponse: "GitHub GraphQL 贡献数据响应不可用。"
   },
   scoring: {
     followersDetail: (followers: string, following: string) => `${followers} 位追随者，关注 ${following} 人。`,
@@ -315,7 +316,7 @@ const zhCNMessages = {
   compareTimeline: {
     collectStartTitle: "开始收集 GitHub 数据",
     collectStartDetail: (left: string, right: string) =>
-      `准备比较 ${left} 与 ${right}，同时收集 profile、仓库、贡献时间线和公开页面上下文。`,
+      `准备比较 ${left} 与 ${right}，同时收集个人资料、仓库、贡献时间线和公开页面上下文。`,
     collectDoneTitle: "GitHub 数据收集完成",
     collectDoneDetail: (leftRepositories: number, rightRepositories: number, leftTimeline: number, rightTimeline: number) =>
       `已收集 ${leftRepositories} + ${rightRepositories} 个仓库，以及 ${leftTimeline} + ${rightTimeline} 条近期贡献时间线。`,
@@ -325,11 +326,11 @@ const zhCNMessages = {
   },
   llm: {
     errors: {
-      apiKeyRequired: "LLM API key is required for profile evaluation.",
-      emptyResponse: "LLM response was empty.",
-      toolRoundLimit: "LLM did not finish within the tool call limit.",
-      invalidResponse: (issueSummary: string) => `LLM response did not match the expected analysis schema. ${issueSummary}`,
-      generationFailed: (message: string) => `LLM generation failed: ${message}`
+      apiKeyRequired: "账号评估需要配置 LLM API key。",
+      emptyResponse: "LLM 响应为空。",
+      toolRoundLimit: "LLM 未能在工具调用次数限制内完成。",
+      invalidResponse: (issueSummary: string) => `LLM 响应不符合预期分析结构。${issueSummary}`,
+      generationFailed: (message: string) => `LLM 生成失败：${message}`
     },
     timeline: {
       continueEvidenceTitle: "模型继续整合证据",
@@ -353,7 +354,14 @@ export type Messages = typeof zhCNMessages;
 export const zhCN: Messages = zhCNMessages;
 
 export const enUS: Messages = {
-  ...zhCNMessages,
+  app: {
+    title: "GitHub Profile Competition",
+    tagline: "profile competition"
+  },
+  metadata: {
+    title: "GitHub Profile Competition",
+    description: "Compare two GitHub profiles with public metrics and AI analysis."
+  },
   dimensions: {
     followers: "Followers",
     repositories: "Repositories",
@@ -367,6 +375,332 @@ export const enUS: Messages = {
     projectImpact: "Stars, forks, watchers, and representative project performance.",
     openSourceContribution: "Commits, pull requests, issues, reviews, and contribution activity.",
     activityAndConsistency: "Recent events, repository update cadence, and sustained maintenance signals."
+  },
+  appHeader: {
+    navigation: {
+      compare: "Compare",
+      leaderboard: "Leaderboard",
+      github: "GitHub"
+    },
+    menu: {
+      label: "Menu",
+      open: "Open menu",
+      close: "Close menu"
+    },
+    navigationLabel: "Primary navigation"
+  },
+  radarChart: {
+    comparisonLabel: (left: string, right: string) => `Radar chart comparison for ${left} and ${right}`
+  },
+  comparison: {
+    chartLoading: "Loading radar chart",
+    common: {
+      notAvailable: "N/A",
+      unknownTime: "Unknown time",
+      followers: "Followers",
+      repositories: "Repositories",
+      system: "System",
+      llm: "LLM",
+      starsAndForks: (stars: string, forks: string) => `${stars} stars / ${forks} forks`
+    },
+    loadingSubtitles: [
+      "Reading public data and laying out stars, forks, and contribution timelines.",
+      "The model is checking README and issue signals for real project quality.",
+      "System scoring is underway while the LLM score warms up.",
+      "Contribution history is being weighed, with recent activity treated carefully.",
+      "If the matchup is close, the evidence gets the final word."
+    ],
+    scoreFormulaRows: [
+      {
+        title: "Fixed system score",
+        detail: "Each of the five dimensions is scored from 0 to 100, and the system score is their average."
+      },
+      {
+        title: "LLM judgment score",
+        detail: "The model assigns each account a 0-100 judgment score based on profile data, tool evidence, and system scores."
+      },
+      {
+        title: "Final total score",
+        detail: "Final total score = fixed system score * 50% + LLM judgment score * 50%."
+      },
+      {
+        title: "Winner decision",
+        detail: "The page uses the final total score; margins below 2 points are treated as close."
+      }
+    ],
+    dimensionFormulaRows: [
+      {
+        title: "Followers",
+        detail: "Follower count uses logarithmic scaling, with 50,000 followers as the 100-point benchmark."
+      },
+      {
+        title: "Repositories",
+        detail: "Public repository count contributes 58%, active repositories in the past year 24%, and non-fork ratio 18%."
+      },
+      {
+        title: "Project impact",
+        detail: "Total stars contribute 52%, forks 28%, watchers 12%, and the top repository's stars 8%."
+      },
+      {
+        title: "Open source contribution",
+        detail: "Total contributions contribute 55%, PRs/issues/reviews 25%, and active days 20%."
+      },
+      {
+        title: "Activity and consistency",
+        detail: "Active repositories in the past year contribute 38%, updates in the past 90 days 22%, active days 22%, and recent freshness 18%."
+      }
+    ],
+    dataIssue: {
+      title: (left: string, right: string) => `Data accuracy issue: ${left} vs ${right}`,
+      body: (left: string, right: string) => [
+        `Compared users: ${left} vs ${right}`,
+        "",
+        "What seems inaccurate?",
+        "",
+        "Expected correction:",
+        "",
+        "Evidence URL (optional):"
+      ]
+    },
+    repository: {
+      empty: "No representative repositories"
+    },
+    footnotes: {
+      viewSource: (id: string) => `View source ${id}`,
+      missingSource: "Source not listed"
+    },
+    empty: {
+      title: "Waiting for a matchup",
+      description: "Enter two GitHub usernames to start the comparison."
+    },
+    battle: {
+      ariaLabel: (matchup: string) => `${matchup} opening animation`,
+      avatarAlt: (username: string) => `${username} avatar`
+    },
+    loading: {
+      fallbackMatchup: "GitHub account comparison",
+      title: "Comparing"
+    },
+    error: {
+      title: "Analysis failed",
+      requestFailed: "Request failed.",
+      streamUnsupported: "This browser does not support streaming responses."
+    },
+    timeline: {
+      ariaLabel: "Model action timeline",
+      title: "Model action timeline",
+      subtitle: "Shows observable data reads, tool calls, and evidence summaries from the model.",
+      streaming: "Streaming",
+      done: "Completed",
+      hideTitle: "Hide model reasoning",
+      showTitle: "Show model reasoning",
+      collapse: "Collapse",
+      expand: "Expand",
+      sourceLabel: (sourceId: string) => `Source ${sourceId}`
+    },
+    comparisonRows: {
+      itemColumn: "Item"
+    },
+    account: {
+      profileLinkTitle: "Open GitHub profile",
+      avatarAlt: (username: string) => `${username} avatar`,
+      finalScore: "Final total score",
+      confidence: (confidence: string) => `${confidence} confidence`,
+      systemScore: (score: number) => `System ${score}`,
+      llmScore: (score: number | string) => `LLM ${score}`,
+      followers: (count: string) => `${count} followers`,
+      repositories: (count: string) => `${count} repositories`,
+      scoreBreakdownLabel: (username: string) => `${username} score breakdown`
+    },
+    share: {
+      copied: "Link copied",
+      failed: "Copy failed. Please copy the address bar link manually.",
+      ariaLabel: "Share comparison result",
+      title: "Share result",
+      validDays: (days: number) => `Comparison information is valid for ${days} days.`,
+      copyTitle: "Copy result link",
+      copy: "Copy link",
+      imageTitle: "Open save image dialog",
+      image: "Save image"
+    },
+    scoreInfo: {
+      title: "Score composition",
+      description: "The final total score is half fixed system score and half LLM judgment score.",
+      close: "Close",
+      dimensionTitle: "Fixed system score dimensions"
+    },
+    overview: {
+      publicImpact: "Public impact",
+      followersFollowing: (followers: string, following: string) => `${followers} followers / ${following} following`,
+      repositoryScale: "Repository scale",
+      repositoryScaleValue: (repos: string, active: string) => `${repos} public repositories / ${active} active in the past year`,
+      reposGists: (repos: string, gists: string) => `${repos} repos / ${gists} gists`,
+      projectImpact: "Project impact",
+      contributionSignals: "Contribution signals",
+      contributionSignalsValue: (total: string, activeDays: string) => `${total} contributions / ${activeDays} active days`,
+      topLanguages: "Top languages",
+      profileUpdated: "Profile updated",
+      featuredRepositories: "Featured repositories",
+      title: "Profile overview"
+    },
+    metrics: {
+      ariaLabel: "Dimension comparison table",
+      dimension: "Dimension",
+      reportIssue: "[Data inaccurate?]"
+    },
+    analysis: {
+      summaryTitle: "LLM evaluation",
+      winnerLabel: (username: string) => `Model view: ${username}`,
+      closeResult: "The model considers this matchup close",
+      scoringTitle: "Model scoring",
+      dimensionInsightsTitle: "Dimension insights",
+      missingAccountInsight: "The model did not provide insight for this account.",
+      accountAnalysisTitle: "Account analysis",
+      strengths: "Strengths",
+      risks: "Risks",
+      recommendations: "Recommendations",
+      caveatsTitle: "Evaluation limits",
+      sourcesTitle: "Sources"
+    },
+    cache: {
+      title: "Showing cached result",
+      cachedAtLabel: "Cached at: ",
+      regenerateTitle: "Regenerate comparison result",
+      regenerate: "Regenerate"
+    },
+    results: {
+      title: "Overall result",
+      scoreInfoTitle: "View score composition",
+      scoreInfo: "Score info",
+      winner: (username: string) => `Final total score winner: ${username}`,
+      close: "Too close to call"
+    },
+    form: {
+      leftAccount: "Account A",
+      rightAccount: "Account B",
+      language: "Language",
+      zhCN: "Chinese",
+      enUS: "English",
+      submitTitle: "Start comparison",
+      loading: "Analyzing",
+      submit: "Start comparison",
+      sourceNote: "GitHub API and public pages provide context; evaluation content is always generated by the configured LLM."
+    }
+  },
+  leaderboard: {
+    row: {
+      avatarAlt: (username: string) => `${username} avatar`,
+      systemTotal: "System total",
+      dimensionScoresLabel: (username: string) => `${username} dimension scores`
+    },
+    error: {
+      loadFailed: "Failed to load leaderboard."
+    },
+    ariaLabel: "Leaderboard",
+    title: "Leaderboard",
+    subtitle: "System-score leaderboard, excluding LLM judgment scores; history is retained, and ranking uses each user's latest calculation.",
+    refreshTitle: "Refresh leaderboard",
+    loading: "Loading leaderboard",
+    empty: "No leaderboard records",
+    count: (total: string, max: string) => `${total} / ${max} users`,
+    truncated: (max: string) => `Showing only the top ${max}`,
+    previousTitle: "Previous page",
+    previous: "Previous",
+    page: (page: string, totalPages: string) => `Page ${page} / ${totalPages}`,
+    nextTitle: "Next page",
+    next: "Next"
+  },
+  shareImage: {
+    unknownDate: "Unknown date",
+    winnerBadge: "Winner",
+    finalScore: "Final total score",
+    systemScore: (score: number) => `System ${score}`,
+    llmScore: (score: number | string) => `LLM ${score}`,
+    radarTitle: "Dimension radar chart",
+    radarSubtitle: "Matches the page display, expanding five dimensions on a 0-100 scale.",
+    winnerText: (winner: string) => `${winner} wins`,
+    closeWinnerText: "Too close to call",
+    leadText: (margin: number) => `Leads by ${margin} points`,
+    closeLeadText: "The total scores are very close",
+    qrTitle: "Scan to open comparison page",
+    validity: (days: number, expiresAt: string) => `Comparison information is valid for ${days} days, until ${expiresAt}.`,
+    canvasUnsupported: "This browser does not support Canvas.",
+    modalTitle: "Save result image",
+    modalDescription: (days: number) => `Comparison information is valid for ${days} days.`,
+    download: "Download PNG",
+    close: "Close",
+    previewLabel: "Share image preview"
+  },
+  validation: {
+    githubUsername: {
+      required: "GitHub username is required.",
+      tooLong: "GitHub username must be 39 characters or fewer.",
+      invalidCharacters: "GitHub username can only contain letters, numbers, and hyphens.",
+      edgeHyphen: "GitHub username cannot start or end with a hyphen.",
+      consecutiveHyphens: "GitHub username cannot contain consecutive hyphens."
+    },
+    compareDifferentUsers: "Please compare two different GitHub usernames."
+  },
+  errors: {
+    unknown: "Unknown error",
+    analysisFailed: "Analysis failed. Please try again later.",
+    requestFailed: "Request failed. Please try again later."
+  },
+  githubErrors: {
+    userNotFound: "GitHub user was not found.",
+    badCredentials: "GitHub token was rejected by GitHub. Check GITHUB_TOKEN and backend logs.",
+    rateLimited: "GitHub API rate limit was reached. Check the backend logs for the raw GitHub response.",
+    forbidden: "GitHub API request was forbidden. Check GITHUB_TOKEN permissions and backend logs.",
+    requestFailed: (status: number) => `GitHub request failed with status ${status}.`,
+    graphQlUnusableResponse: "GitHub GraphQL contribution response was not usable."
+  },
+  scoring: {
+    followersDetail: (followers: string, following: string) => `${followers} followers, following ${following}.`,
+    repositoriesDetail: (total: string, active: string, ownedRatioPercent: number) =>
+      `${total} public repositories, ${active} active in the past year, ${ownedRatioPercent}% non-fork repositories.`,
+    projectImpactDetail: (stars: string, forks: string, topRepoStars: string) =>
+      `${stars} stars, ${forks} forks, with the top repository at ${topRepoStars} stars.`,
+    contributionDetail: (total: string, pullRequests: string, issues: string, reviews: string, confidence: string) =>
+      `${total} contributions, ${pullRequests} PRs, ${issues} issues, ${reviews} reviews, ${confidence} confidence.`,
+    activityDetail: (active: string, updatedRecently: string, activeDays: string) =>
+      `${active} repositories active in the past year, ${updatedRecently} updated in the past 90 days, ${activeDays} active days.`,
+    winnerReason: (username: string, margin: number) =>
+      `${username} leads by ${margin} points overall, mainly due to a stronger combination of dimension scores.`
+  },
+  compareTimeline: {
+    collectStartTitle: "Start collecting GitHub data",
+    collectStartDetail: (left: string, right: string) =>
+      `Preparing to compare ${left} and ${right}, collecting profile, repository, contribution timeline, and public page context.`,
+    collectDoneTitle: "GitHub data collection completed",
+    collectDoneDetail: (leftRepositories: number, rightRepositories: number, leftTimeline: number, rightTimeline: number) =>
+      `Collected ${leftRepositories} + ${rightRepositories} repositories and ${leftTimeline} + ${rightTimeline} recent contribution timeline entries.`,
+    metricsDoneTitle: "Local metrics calculated",
+    metricsDoneDetail:
+      "Generated scores for followers, repositories, project impact, open source contribution, and activity/consistency as model inputs.",
+    modelFailedTitle: "Model generation failed"
+  },
+  llm: {
+    errors: {
+      apiKeyRequired: "LLM API key is required for profile evaluation.",
+      emptyResponse: "LLM response was empty.",
+      toolRoundLimit: "LLM did not finish within the tool call limit.",
+      invalidResponse: (issueSummary: string) => `LLM response did not match the expected analysis schema. ${issueSummary}`,
+      generationFailed: (message: string) => `LLM generation failed: ${message}`
+    },
+    timeline: {
+      continueEvidenceTitle: "Model continues integrating evidence",
+      startReadingTitle: "Model starts reading data",
+      finalGenerationTitle: "Model enters final generation",
+      continueEvidenceDetail: "The model is generating the next step from returned repository, issue/PR, and timeline evidence.",
+      startReadingDetail: "The model is reading account profiles, repository lists, contribution timelines, and available tool instructions.",
+      finalGenerationDetail: "Tool budget is complete, and the model is generating the final evaluation with footnoted sources.",
+      toolCallTitle: (toolName: string) => `Model calls tool: ${toolName}`,
+      toolResultTitle: (toolName: string) => `Tool returned: ${toolName}`,
+      repairOutputTitle: "Model repairs output structure",
+      repairOutputDetail: (issueSummary: string) => `The final model output must be repaired into structured JSON: ${issueSummary}`,
+      finalTitle: "Model generated final evaluation",
+      finalDetail: "The model generated final JSON evaluation with footnoted sources from base data and returned tool content."
+    }
   }
 };
 
@@ -376,4 +710,8 @@ export function getMessages(locale: LocaleCode | undefined): Messages {
   }
 
   return zhCN;
+}
+
+export function normalizeLocaleCode(locale: string | null | undefined): LocaleCode {
+  return locale === "en-US" ? "en-US" : "zh-CN";
 }

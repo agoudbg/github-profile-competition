@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { zhCN } from "@/i18n/messages";
+import { getMessages } from "@/i18n/messages";
 import { AppError, logServerError, toErrorMessage } from "@/lib/errors";
 import type {
   ComparisonMetrics,
@@ -1045,10 +1045,11 @@ export async function generateLlmAnalysis(
   locale: LocaleCode,
   emitTimeline?: TimelineEmitter
 ): Promise<LlmResult> {
+  const i18n = getMessages(locale);
   const apiKey = process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
-    throw new AppError("llm_not_configured", zhCN.llm.errors.apiKeyRequired, 500);
+    throw new AppError("llm_not_configured", i18n.llm.errors.apiKeyRequired, 500);
   }
 
   const baseUrl = (process.env.OPENAI_BASE_URL ?? DEFAULT_OPENAI_BASE_URL).replace(/\/$/, "");
@@ -1085,14 +1086,14 @@ export async function generateLlmAnalysis(
         phase: "model",
         title: allowTools
           ? usedTool
-            ? zhCN.llm.timeline.continueEvidenceTitle
-            : zhCN.llm.timeline.startReadingTitle
-          : zhCN.llm.timeline.finalGenerationTitle,
+            ? i18n.llm.timeline.continueEvidenceTitle
+            : i18n.llm.timeline.startReadingTitle
+          : i18n.llm.timeline.finalGenerationTitle,
         detail: allowTools
           ? usedTool
-            ? zhCN.llm.timeline.continueEvidenceDetail
-            : zhCN.llm.timeline.startReadingDetail
-          : zhCN.llm.timeline.finalGenerationDetail,
+            ? i18n.llm.timeline.continueEvidenceDetail
+            : i18n.llm.timeline.startReadingDetail
+          : i18n.llm.timeline.finalGenerationDetail,
         status: "running"
       });
 
@@ -1121,7 +1122,7 @@ export async function generateLlmAnalysis(
           toolCallCount += 1;
           await emitTimeline?.({
             phase: "tool_call",
-            title: zhCN.llm.timeline.toolCallTitle(toolCall.function.name),
+            title: i18n.llm.timeline.toolCallTitle(toolCall.function.name),
             detail: toolCall.function.arguments || "{}",
             status: "running",
             toolName: toolCall.function.name
@@ -1145,7 +1146,7 @@ export async function generateLlmAnalysis(
 
           await emitTimeline?.({
             phase: "tool_result",
-            title: zhCN.llm.timeline.toolResultTitle(toolCall.function.name),
+            title: i18n.llm.timeline.toolResultTitle(toolCall.function.name),
             detail: result.summary,
             status: toolStatus,
             toolName: toolCall.function.name,
@@ -1172,7 +1173,7 @@ export async function generateLlmAnalysis(
 
       const content = message?.content;
       if (!content) {
-        throw new AppError("llm_empty_response", zhCN.llm.errors.emptyResponse, 502);
+        throw new AppError("llm_empty_response", i18n.llm.errors.emptyResponse, 502);
       }
 
       if (!usedTool && round < MAX_TOOL_ROUNDS - 1) {
@@ -1195,8 +1196,8 @@ export async function generateLlmAnalysis(
             parseError instanceof z.ZodError ? summarizeZodIssues(parseError) : toErrorMessage(parseError);
           await emitTimeline?.({
             phase: "model",
-            title: zhCN.llm.timeline.repairOutputTitle,
-            detail: zhCN.llm.timeline.repairOutputDetail(issueSummary),
+            title: i18n.llm.timeline.repairOutputTitle,
+            detail: i18n.llm.timeline.repairOutputDetail(issueSummary),
             status: "running"
           });
           toolCallCount = maxToolCalls;
@@ -1213,8 +1214,8 @@ export async function generateLlmAnalysis(
 
       await emitTimeline?.({
         phase: "final",
-        title: zhCN.llm.timeline.finalTitle,
-        detail: zhCN.llm.timeline.finalDetail,
+        title: i18n.llm.timeline.finalTitle,
+        detail: i18n.llm.timeline.finalDetail,
         status: "completed",
         sourceIds: analysis.sources.map((source) => source.id)
       });
@@ -1225,7 +1226,7 @@ export async function generateLlmAnalysis(
       };
     }
 
-    throw new AppError("llm_tool_round_limit", zhCN.llm.errors.toolRoundLimit, 502);
+    throw new AppError("llm_tool_round_limit", i18n.llm.errors.toolRoundLimit, 502);
   } catch (error) {
     if (error instanceof AppError) {
       throw error;
@@ -1235,11 +1236,11 @@ export async function generateLlmAnalysis(
       const issueSummary = summarizeZodIssues(error);
       throw new AppError(
         "llm_invalid_response",
-        zhCN.llm.errors.invalidResponse(issueSummary),
+        i18n.llm.errors.invalidResponse(issueSummary),
         502
       );
     }
 
-    throw new AppError("llm_generation_failed", zhCN.llm.errors.generationFailed(toErrorMessage(error)), 502);
+    throw new AppError("llm_generation_failed", i18n.llm.errors.generationFailed(toErrorMessage(error)), 502);
   }
 }

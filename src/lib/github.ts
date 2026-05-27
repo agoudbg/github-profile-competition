@@ -1,10 +1,11 @@
-import { zhCN } from "@/i18n/messages";
+import { getMessages } from "@/i18n/messages";
 import { AppError, logServerError, toErrorMessage } from "@/lib/errors";
 import type {
   ContributionTimelineEntry,
   ContributionStats,
   GitHubProfile,
   GitHubRepository,
+  LocaleCode,
   ProfileContext,
   UserDataset
 } from "@/lib/types";
@@ -182,29 +183,31 @@ function isGitHubRateLimitFailure(response: Response, detail: GitHubErrorDetail)
   return response.status === 429 || remaining === "0" || message.includes("rate limit");
 }
 
-function createGitHubRequestError(response: Response, detail: GitHubErrorDetail): AppError {
+function createGitHubRequestError(response: Response, detail: GitHubErrorDetail, locale: LocaleCode): AppError {
+  const messages = getMessages(locale).githubErrors;
+
   if (response.status === 404) {
-    return new AppError("github_user_not_found", zhCN.githubErrors.userNotFound, 404, { detail });
+    return new AppError("github_user_not_found", messages.userNotFound, 404, { detail });
   }
 
   if (response.status === 401) {
-    return new AppError("github_bad_credentials", zhCN.githubErrors.badCredentials, 401, { detail });
+    return new AppError("github_bad_credentials", messages.badCredentials, 401, { detail });
   }
 
   if (isGitHubRateLimitFailure(response, detail)) {
-    return new AppError("github_rate_limited", zhCN.githubErrors.rateLimited, 429, { detail });
+    return new AppError("github_rate_limited", messages.rateLimited, 429, { detail });
   }
 
   if (response.status === 403) {
-    return new AppError("github_request_forbidden", zhCN.githubErrors.forbidden, 403, { detail });
+    return new AppError("github_request_forbidden", messages.forbidden, 403, { detail });
   }
 
-  return new AppError("github_request_failed", zhCN.githubErrors.requestFailed(response.status), 502, {
+  return new AppError("github_request_failed", messages.requestFailed(response.status), 502, {
     detail
   });
 }
 
-async function fetchGitHubJson<T>(path: string, token?: string): Promise<T> {
+async function fetchGitHubJson<T>(path: string, token: string | undefined, locale: LocaleCode): Promise<T> {
   const response = await fetch(`${GITHUB_API_BASE}${path}`, {
     headers: githubHeaders({ token }),
     next: { revalidate: 300 }
@@ -220,7 +223,7 @@ async function fetchGitHubJson<T>(path: string, token?: string): Promise<T> {
     tokenPresent: Boolean(token)
   });
 
-  throw createGitHubRequestError(response, detail);
+  throw createGitHubRequestError(response, detail, locale);
 }
 
 function mapProfile(input: GitHubUserApiResponse): GitHubProfile {
@@ -263,14 +266,15 @@ function mapRepository(input: GitHubRepoApiResponse): GitHubRepository {
   };
 }
 
-async function fetchRepositories(username: string, token?: string): Promise<GitHubRepository[]> {
+async function fetchRepositories(username: string, token: string | undefined, locale: LocaleCode): Promise<GitHubRepository[]> {
   const pages = Array.from({ length: MAX_REPO_PAGES }, (_, index) => index + 1);
   const repositories: GitHubRepository[] = [];
 
   for (const page of pages) {
     const items = await fetchGitHubJson<GitHubRepoApiResponse[]>(
       `/users/${encodeURIComponent(username)}/repos?per_page=${PER_PAGE}&page=${page}&sort=updated&type=owner`,
-      token
+      token,
+      locale
     );
 
     repositories.push(...items.map(mapRepository));
@@ -283,11 +287,12 @@ async function fetchRepositories(username: string, token?: string): Promise<GitH
   return repositories;
 }
 
-async function fetchPublicEvents(username: string, token?: string): Promise<GitHubEventApiResponse[]> {
+async function fetchPublicEvents(username: string, token: string | undefined, locale: LocaleCode): Promise<GitHubEventApiResponse[]> {
   try {
     return await fetchGitHubJson<GitHubEventApiResponse[]>(
       `/users/${encodeURIComponent(username)}/events/public?per_page=${PER_PAGE}`,
-      token
+      token,
+      locale
     );
   } catch (error) {
     if (error instanceof AppError && error.code === "github_rate_limited") {
@@ -409,7 +414,11 @@ export function deriveContributionStatsFromEvents(events: GitHubEventApiResponse
   };
 }
 
-async function fetchGraphQlContributionStats(username: string, token: string | undefined): Promise<ContributionStats | null> {
+async function fetchGraphQlContributionStats(
+  username: string,
+  token: string | undefined,
+  locale: LocaleCode
+): Promise<ContributionStats | null> {
   if (!token) {
     return null;
   }
@@ -456,7 +465,7 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
 
     logServerError(
       "[github] GraphQL contribution request failed; falling back to public events.",
-      createGitHubRequestError(response, detail),
+      createGitHubRequestError(response, detail, locale),
       {
         username
       }
@@ -471,7 +480,7 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
   if (!collection || payload.errors?.length) {
     logServerError(
       "[github] GraphQL contribution response did not include usable contribution data; falling back to public events.",
-      new AppError("github_graphql_unusable_response", zhCN.githubErrors.graphQlUnusableResponse, 502, {
+      new AppError("github_graphql_unusable_response", getMessages(locale).githubErrors.graphQlUnusableResponse, 502, {
         detail: {
           request: {
             method: "POST",
@@ -584,12 +593,12 @@ function buildLanguageDistribution(repositories: GitHubRepository[]): Record<str
   }, {});
 }
 
-export async function collectGitHubUserDataset(username: string): Promise<UserDataset> {
+export async function collectGitHubUserDataset(username: string, locale: LocaleCode = "zh-CN"): Promise<UserDataset> {
   const token = process.env.GITHUB_TOKEN;
-  const profilePromise = fetchGitHubJson<GitHubUserApiResponse>(`/users/${encodeURIComponent(username)}`, token);
-  const repositoriesPromise = fetchRepositories(username, token);
-  const eventsPromise = fetchPublicEvents(username, token);
-  const graphQlContributionPromise = fetchGraphQlContributionStats(username, token);
+  const profilePromise = fetchGitHubJson<GitHubUserApiResponse>(`/users/${encodeURIComponent(username)}`, token, locale);
+  const repositoriesPromise = fetchRepositories(username, token, locale);
+  const eventsPromise = fetchPublicEvents(username, token, locale);
+  const graphQlContributionPromise = fetchGraphQlContributionStats(username, token, locale);
   const profileContextPromise = fetchProfileContext(username);
 
   const [profileResponse, repositories, events, graphQlContribution, context] = await Promise.all([

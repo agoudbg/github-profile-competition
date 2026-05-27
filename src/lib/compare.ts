@@ -1,4 +1,4 @@
-import { zhCN } from "@/i18n/messages";
+import { getMessages } from "@/i18n/messages";
 import { collectGitHubUserDataset } from "@/lib/github";
 import { generateLlmAnalysis } from "@/lib/llm";
 import { calculateComparisonMetrics, composeComparisonMetricsWithLlmScores } from "@/lib/scoring";
@@ -39,23 +39,24 @@ function createTimelineRecorder(forward?: TimelineForwarder) {
 
 export async function compareGitHubProfiles(request: CompareRequest, forwardTimeline?: TimelineForwarder): Promise<CompareResponse> {
   const locale = request.locale ?? "zh-CN";
+  const messages = getMessages(locale);
   const recorder = createTimelineRecorder(forwardTimeline);
 
   await recorder.emit({
     phase: "data",
-    title: zhCN.compareTimeline.collectStartTitle,
-    detail: zhCN.compareTimeline.collectStartDetail(request.users[0], request.users[1]),
+    title: messages.compareTimeline.collectStartTitle,
+    detail: messages.compareTimeline.collectStartDetail(request.users[0], request.users[1]),
     status: "running"
   });
 
   const datasets = (await Promise.all(
-    request.users.map((username) => collectGitHubUserDataset(username))
+    request.users.map((username) => collectGitHubUserDataset(username, locale))
   )) as [UserDataset, UserDataset];
 
   await recorder.emit({
     phase: "data",
-    title: zhCN.compareTimeline.collectDoneTitle,
-    detail: zhCN.compareTimeline.collectDoneDetail(
+    title: messages.compareTimeline.collectDoneTitle,
+    detail: messages.compareTimeline.collectDoneDetail(
       datasets[0].repositories.length,
       datasets[1].repositories.length,
       datasets[0].contributionTimeline.length,
@@ -69,8 +70,8 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
 
   await recorder.emit({
     phase: "data",
-    title: zhCN.compareTimeline.metricsDoneTitle,
-    detail: zhCN.compareTimeline.metricsDoneDetail,
+    title: messages.compareTimeline.metricsDoneTitle,
+    detail: messages.compareTimeline.metricsDoneDetail,
     status: "completed"
   });
 
@@ -78,13 +79,13 @@ export async function compareGitHubProfiles(request: CompareRequest, forwardTime
 
   try {
     llm = await generateLlmAnalysis(datasets, metrics, locale, recorder.emit);
-    metrics = composeComparisonMetricsWithLlmScores(metrics, llm.analysis.accountScores);
+    metrics = composeComparisonMetricsWithLlmScores(metrics, llm.analysis.accountScores, locale);
     saveLeaderboardScores(datasets, metrics.accounts);
   } catch (error) {
     await recorder.emit({
       phase: "error",
-      title: zhCN.compareTimeline.modelFailedTitle,
-      detail: getSafeClientMessage(error),
+      title: messages.compareTimeline.modelFailedTitle,
+      detail: getSafeClientMessage(error, locale),
       status: "error"
     });
     throw error;

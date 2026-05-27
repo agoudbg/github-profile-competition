@@ -23,11 +23,17 @@ describe("parseCompareRequest", () => {
   });
 
   it("rejects duplicate users", () => {
-    expect(() => parseCompareRequest({ users: ["agou", "AGOU"] })).toThrow("Please compare two different");
+    expect(() => parseCompareRequest({ users: ["agou", "AGOU"] })).toThrow("请对比两个不同的");
+  });
+
+  it("localizes validation messages from the requested locale", () => {
+    expect(() => parseCompareRequest({ users: ["agou", "AGOU"], locale: "en-US" })).toThrow(
+      "Please compare two different GitHub usernames."
+    );
   });
 
   it("rejects invalid GitHub usernames", () => {
-    expect(() => parseCompareRequest({ users: ["-bad", "valid-user"] })).toThrow("cannot start or end");
-    expect(() => parseCompareRequest({ users: ["bad_user", "valid-user"] })).toThrow("can only contain");
+    expect(() => parseCompareRequest({ users: ["-bad", "valid-user"] })).toThrow("不能以连字符开头或结尾");
+    expect(() => parseCompareRequest({ users: ["bad_user", "valid-user"] })).toThrow("只能包含字母");
   });
 });

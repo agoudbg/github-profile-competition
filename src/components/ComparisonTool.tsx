@@ -20,9 +20,11 @@ import {
   X
 } from "lucide-react";
 import {
+  createContext,
   type CSSProperties,
   type FormEvent,
   type ReactNode,
+  useContext,
   useCallback,
   useEffect,
   useMemo,
@@ -35,38 +37,53 @@ import type {
   CompareResponse,
   CompareStreamEvent,
   GitHubRepository,
+  LocaleCode,
   ModelTimelineEvent,
   UserDataset
 } from "@/lib/types";
-import { zhCN } from "@/i18n/messages";
+import { getMessages, normalizeLocaleCode, type Messages } from "@/i18n/messages";
 import { createSharePayload, SHARE_VALID_DAYS } from "@/lib/share";
 import { ShareImageModal } from "@/components/ShareImageModal";
 
-const messages = zhCN.comparison;
+type ComparisonMessages = Messages["comparison"];
+type ComparisonI18nContextValue = {
+  appMessages: Messages["app"];
+  locale: LocaleCode;
+  messages: ComparisonMessages;
+};
+
+const fallbackMessages = getMessages("zh-CN").comparison;
+const ComparisonI18nContext = createContext<ComparisonI18nContextValue | null>(null);
+
+function useComparisonI18n(): ComparisonI18nContextValue {
+  const context = useContext(ComparisonI18nContext);
+  if (!context) {
+    throw new Error("Comparison i18n context is missing.");
+  }
+
+  return context;
+}
 
 const RadarComparisonChart = dynamic(
   () => import("@/components/RadarComparisonChart").then((module) => module.RadarComparisonChart),
   {
     ssr: false,
-    loading: () => <div className="chart-loading">{messages.chartLoading}</div>
+    loading: () => <div className="chart-loading">{fallbackMessages.chartLoading}</div>
   }
 );
-
-const loadingSubtitles = messages.loadingSubtitles;
-const scoreFormulaRows = messages.scoreFormulaRows;
-const dimensionFormulaRows = messages.dimensionFormulaRows;
 
 const repositoryIssueUrl = "https://github.com/agoudbg/github-profile-competition/issues/new";
 
 type FormState = {
   left: string;
   right: string;
-  locale: string;
+  locale: LocaleCode;
 };
 
 type InitialUsers = {
   left?: string;
   right?: string;
+  locale?: LocaleCode;
   autoStart?: boolean;
 };
 
@@ -113,30 +130,30 @@ function isCompareStreamEvent(value: unknown): value is CompareStreamEvent {
   return isRecord(value) && typeof value.type === "string";
 }
 
-function formatNumber(value: number): string {
-  return new Intl.NumberFormat("zh-CN").format(value);
+function formatNumber(value: number, locale: LocaleCode): string {
+  return new Intl.NumberFormat(locale).format(value);
 }
 
-function formatDate(value: string | null): string {
+function formatDate(value: string | null, messages: ComparisonMessages, locale: LocaleCode): string {
   if (!value) {
     return messages.common.notAvailable;
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
   }).format(new Date(value));
 }
 
-function formatDateTime(value: string): string {
+function formatDateTime(value: string, messages: ComparisonMessages, locale: LocaleCode): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return messages.common.unknownTime;
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -155,7 +172,7 @@ function getTopRepositories(repositories: GitHubRepository[]): GitHubRepository[
     .slice(0, 3);
 }
 
-function getTopLanguages(dataset: UserDataset): string {
+function getTopLanguages(dataset: UserDataset, messages: ComparisonMessages): string {
   const languages = Object.entries(dataset.languageDistribution)
     .sort((left, right) => right[1] - left[1])
     .slice(0, 3)
@@ -164,19 +181,21 @@ function getTopLanguages(dataset: UserDataset): string {
   return languages.length > 0 ? languages.join(" / ") : messages.common.notAvailable;
 }
 
-function buildComparisonUrl(left: string, right: string): string {
+function buildComparisonUrl(left: string, right: string, locale: LocaleCode): string {
   const query = new URLSearchParams({
     a: left,
-    b: right
+    b: right,
+    locale
   });
 
   return `?${query.toString()}`;
 }
 
-function buildShareComparisonUrl(left: string, right: string): string {
+function buildShareComparisonUrl(left: string, right: string, locale: LocaleCode): string {
   const query = new URLSearchParams({
     a: left,
     b: right,
+    locale,
     share: "1"
   });
 
@@ -191,7 +210,7 @@ function buildGitHubAvatarUrl(username: string): string {
   return `https://github.com/${encodeURIComponent(username)}.png?size=180`;
 }
 
-function buildDataIssueUrl(usernames: [string, string]): string {
+function buildDataIssueUrl(usernames: [string, string], messages: ComparisonMessages): string {
   const query = new URLSearchParams({
     title: messages.dataIssue.title(usernames[0], usernames[1]),
     body: messages.dataIssue.body(usernames[0], usernames[1]).join("\n")
@@ -200,7 +219,7 @@ function buildDataIssueUrl(usernames: [string, string]): string {
   return `${repositoryIssueUrl}?${query.toString()}`;
 }
 
-function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
+function renderRepositoryList(repositories: GitHubRepository[], messages: ComparisonMessages, locale: LocaleCode): ReactNode {
   const topRepositories = getTopRepositories(repositories);
 
   if (topRepositories.length === 0) {
@@ -215,7 +234,7 @@ function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
             {repository.name}
           </a>
           <span className="repo-meta">
-            {messages.common.starsAndForks(formatNumber(repository.stargazersCount), formatNumber(repository.forksCount))}
+            {messages.common.starsAndForks(formatNumber(repository.stargazersCount, locale), formatNumber(repository.forksCount, locale))}
           </span>
         </li>
       ))}
@@ -230,6 +249,7 @@ function TextWithFootnotes({
   text: string;
   sourceIndexById: Map<string, number>;
 }) {
+  const { messages } = useComparisonI18n();
   const parts = text.split(/(\[\^[^\]]+\])/g);
 
   return (
@@ -258,6 +278,8 @@ function TextWithFootnotes({
 }
 
 function EmptyState() {
+  const { messages } = useComparisonI18n();
+
   return (
     <section className="empty-panel" aria-live="polite">
       <div>
@@ -276,6 +298,7 @@ function BattleOverlay({
   animation: BattleOverlayState;
   onComplete: (id: number) => void;
 }) {
+  const { messages } = useComparisonI18n();
   const matchup = `${animation.users[0]} vs ${animation.users[1]}`;
   const [avatarLoadState, setAvatarLoadState] = useState<AvatarLoadState>({ left: false, right: false });
   const battleAvatars = useMemo(() => {
@@ -344,6 +367,7 @@ function LoadingState({
   users: [string, string] | null;
   subtitle: string;
 }) {
+  const { messages } = useComparisonI18n();
   const matchup = users ? `${users[0]} vs ${users[1]}` : messages.loading.fallbackMatchup;
 
   return (
@@ -361,6 +385,8 @@ function LoadingState({
 }
 
 function ErrorState({ message }: { message: string }) {
+  const { messages } = useComparisonI18n();
+
   return (
     <section className="error-panel" role="alert">
       <div>
@@ -373,6 +399,7 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]; isLoading: boolean }) {
+  const { locale, messages } = useComparisonI18n();
   const [isExpanded, setIsExpanded] = useState(false);
   const listWrapRef = useRef<HTMLDivElement | null>(null);
 
@@ -431,7 +458,7 @@ function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]
                 <div className="timeline-content">
                   <div className="timeline-head">
                     <span>{event.title}</span>
-                    <time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
+                    <time>{new Date(event.at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
                   </div>
                   <p>{event.detail}</p>
                   {event.sourceIds?.length ? (
@@ -462,6 +489,8 @@ function ComparisonRows({
   rightUsername: string;
   rows: ComparisonRow[];
 }) {
+  const { messages } = useComparisonI18n();
+
   return (
     <section className="comparison-panel">
       <div className="panel-heading">
@@ -502,6 +531,7 @@ function AccountSummary({
   isOutcomeEffectActive: boolean;
   effectDirection: DuelDirection;
 }) {
+  const { locale, messages } = useComparisonI18n();
   const outcomeClass = outcome === "neutral" ? "" : `account-card-${outcome}`;
   const actionClass = isOutcomeEffectActive && outcome !== "neutral" ? "account-card-duel-active" : "";
   const avatarActionStyle = {
@@ -549,9 +579,9 @@ function AccountSummary({
       </div>
 
       <div className="pill-row">
-        <span className="pill">{messages.account.followers(formatNumber(dataset.profile.followers))}</span>
-        <span className="pill">{messages.account.repositories(formatNumber(dataset.profile.publicRepos))}</span>
-        <span className="pill">{getTopLanguages(dataset)}</span>
+        <span className="pill">{messages.account.followers(formatNumber(dataset.profile.followers, locale))}</span>
+        <span className="pill">{messages.account.repositories(formatNumber(dataset.profile.publicRepos, locale))}</span>
+        <span className="pill">{getTopLanguages(dataset, messages)}</span>
       </div>
     </article>
   );
@@ -564,11 +594,12 @@ function ResultShareActions({
   result: CompareResponse;
   usernames: [string, string];
 }) {
+  const { locale, messages } = useComparisonI18n();
   const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const [isShareImageOpen, setIsShareImageOpen] = useState(false);
   const resetTimerRef = useRef<number | null>(null);
   const [leftUsername, rightUsername] = usernames;
-  const sharePath = buildShareComparisonUrl(leftUsername, rightUsername);
+  const sharePath = buildShareComparisonUrl(leftUsername, rightUsername, locale);
   const sharePayload = useMemo(() => {
     return createSharePayload(result, getAbsoluteUrl(sharePath));
   }, [result, sharePath]);
@@ -626,12 +657,16 @@ function ResultShareActions({
         </div>
         {statusText ? <span className="share-status">{statusText}</span> : null}
       </div>
-      {isShareImageOpen ? <ShareImageModal payload={sharePayload} onClose={() => setIsShareImageOpen(false)} /> : null}
+      {isShareImageOpen ? <ShareImageModal locale={locale} payload={sharePayload} onClose={() => setIsShareImageOpen(false)} /> : null}
     </>
   );
 }
 
 function ScoreInfoModal({ onClose }: { onClose: () => void }) {
+  const { messages } = useComparisonI18n();
+  const scoreFormulaRows = messages.scoreFormulaRows;
+  const dimensionFormulaRows = messages.dimensionFormulaRows;
+
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <section
@@ -677,54 +712,55 @@ function ScoreInfoModal({ onClose }: { onClose: () => void }) {
 }
 
 function OverviewComparison({ datasets }: { datasets: [UserDataset, UserDataset] }) {
+  const { locale, messages } = useComparisonI18n();
   const [left, right] = datasets;
   const rows: ComparisonRow[] = [
     {
       label: messages.overview.publicImpact,
-      left: messages.overview.followersFollowing(formatNumber(left.profile.followers), formatNumber(left.profile.following)),
-      right: messages.overview.followersFollowing(formatNumber(right.profile.followers), formatNumber(right.profile.following))
+      left: messages.overview.followersFollowing(formatNumber(left.profile.followers, locale), formatNumber(left.profile.following, locale)),
+      right: messages.overview.followersFollowing(formatNumber(right.profile.followers, locale), formatNumber(right.profile.following, locale))
     },
     {
       label: messages.overview.repositoryScale,
-      left: messages.overview.reposGists(formatNumber(left.profile.publicRepos), formatNumber(left.profile.publicGists)),
-      right: messages.overview.reposGists(formatNumber(right.profile.publicRepos), formatNumber(right.profile.publicGists))
+      left: messages.overview.reposGists(formatNumber(left.profile.publicRepos, locale), formatNumber(left.profile.publicGists, locale)),
+      right: messages.overview.reposGists(formatNumber(right.profile.publicRepos, locale), formatNumber(right.profile.publicGists, locale))
     },
     {
       label: messages.overview.projectImpact,
       left: messages.common.starsAndForks(
-        formatNumber(sumRepositories(left.repositories, (repository) => repository.stargazersCount)),
-        formatNumber(sumRepositories(left.repositories, (repository) => repository.forksCount))
+        formatNumber(sumRepositories(left.repositories, (repository) => repository.stargazersCount), locale),
+        formatNumber(sumRepositories(left.repositories, (repository) => repository.forksCount), locale)
       ),
       right: messages.common.starsAndForks(
-        formatNumber(sumRepositories(right.repositories, (repository) => repository.stargazersCount)),
-        formatNumber(sumRepositories(right.repositories, (repository) => repository.forksCount))
+        formatNumber(sumRepositories(right.repositories, (repository) => repository.stargazersCount), locale),
+        formatNumber(sumRepositories(right.repositories, (repository) => repository.forksCount), locale)
       )
     },
     {
       label: messages.overview.contributionSignals,
       left: messages.overview.contributionSignalsValue(
-        formatNumber(left.contributions.totalContributions),
-        formatNumber(left.contributions.activeDays)
+        formatNumber(left.contributions.totalContributions, locale),
+        formatNumber(left.contributions.activeDays, locale)
       ),
       right: messages.overview.contributionSignalsValue(
-        formatNumber(right.contributions.totalContributions),
-        formatNumber(right.contributions.activeDays)
+        formatNumber(right.contributions.totalContributions, locale),
+        formatNumber(right.contributions.activeDays, locale)
       )
     },
     {
       label: messages.overview.topLanguages,
-      left: getTopLanguages(left),
-      right: getTopLanguages(right)
+      left: getTopLanguages(left, messages),
+      right: getTopLanguages(right, messages)
     },
     {
       label: messages.overview.profileUpdated,
-      left: formatDate(left.profile.updatedAt),
-      right: formatDate(right.profile.updatedAt)
+      left: formatDate(left.profile.updatedAt, messages, locale),
+      right: formatDate(right.profile.updatedAt, messages, locale)
     },
     {
       label: messages.overview.featuredRepositories,
-      left: renderRepositoryList(left.repositories),
-      right: renderRepositoryList(right.repositories)
+      left: renderRepositoryList(left.repositories, messages, locale),
+      right: renderRepositoryList(right.repositories, messages, locale)
     }
   ];
 
@@ -734,6 +770,7 @@ function OverviewComparison({ datasets }: { datasets: [UserDataset, UserDataset]
 }
 
 function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
+  const { messages } = useComparisonI18n();
   const [left, right] = accounts;
   const usernames = [left.username, right.username] as [string, string];
 
@@ -773,7 +810,7 @@ function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
         </tbody>
       </table>
       <div className="metric-table-footer">
-        <a className="dimension-issue-link" href={buildDataIssueUrl(usernames)} target="_blank" rel="noreferrer">
+        <a className="dimension-issue-link" href={buildDataIssueUrl(usernames, messages)} target="_blank" rel="noreferrer">
           {messages.metrics.reportIssue}
         </a>
       </div>
@@ -786,6 +823,7 @@ function getSourceIndexById(result: CompareResponse): Map<string, number> {
 }
 
 function AnalysisSummaryCard({ result }: { result: CompareResponse }) {
+  const { messages } = useComparisonI18n();
   const sourceIndexById = getSourceIndexById(result);
 
   return (
@@ -825,6 +863,7 @@ function AnalysisDetailCards({
   usernames: [string, string];
   finalWinner: string | null;
 }) {
+  const { messages } = useComparisonI18n();
   const [leftUsername, rightUsername] = usernames;
   const analysisByUsername = new Map(result.llm.analysis.accountAnalyses.map((analysis) => [analysis.username, analysis]));
   const accountAnalysisCards = usernames.flatMap((username) => {
@@ -992,13 +1031,15 @@ function CacheNotice({
   isLoading: boolean;
   onRegenerate: () => void;
 }) {
+  const { locale, messages } = useComparisonI18n();
+
   return (
     <section className="cache-panel" aria-live="polite">
       <div>
         <h2>{messages.cache.title}</h2>
         <p>
           {messages.cache.cachedAtLabel}
-          <time dateTime={cachedAt}>{formatDateTime(cachedAt)}</time>
+          <time dateTime={cachedAt}>{formatDateTime(cachedAt, messages, locale)}</time>
         </p>
       </div>
       <button
@@ -1024,6 +1065,7 @@ function Results({
   isLoading: boolean;
   onRegenerate: () => void;
 }) {
+  const { locale, messages } = useComparisonI18n();
   const [isScoreInfoOpen, setIsScoreInfoOpen] = useState(false);
   const resultPanelRef = useRef<HTMLElement | null>(null);
   const avatarRefs = useRef<Record<string, HTMLDivElement | null>>({});
@@ -1266,7 +1308,7 @@ function Results({
       <div className="content-grid">
         <MetricTable accounts={accounts} />
         <section className="chart-panel">
-          <RadarComparisonChart data={result.metrics.radar} usernames={usernames} />
+          <RadarComparisonChart data={result.metrics.radar} locale={locale} usernames={usernames} />
         </section>
       </div>
 
@@ -1281,8 +1323,12 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
   const [form, setForm] = useState<FormState>({
     left: initialUsers.left ?? "",
     right: initialUsers.right ?? "",
-    locale: "zh-CN"
+    locale: initialUsers.locale ?? "zh-CN"
   });
+  const localeMessages = getMessages(form.locale);
+  const appMessages = localeMessages.app;
+  const messages = localeMessages.comparison;
+  const loadingSubtitles = messages.loadingSubtitles;
   const [result, setResult] = useState<CompareResponse | null>(null);
   const [timeline, setTimeline] = useState<ModelTimelineEvent[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -1307,7 +1353,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     }, 3_600);
 
     return () => window.clearInterval(intervalId);
-  }, [isLoading]);
+  }, [isLoading, loadingSubtitles.length]);
 
   const submitComparison = useCallback(async (options: { forceRefresh?: boolean } = {}) => {
     if (!canSubmit) {
@@ -1317,7 +1363,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     const left = form.left.trim();
     const right = form.right.trim();
 
-    window.history.replaceState(null, "", buildComparisonUrl(left, right));
+    window.history.replaceState(null, "", buildComparisonUrl(left, right, form.locale));
     setIsLoading(true);
     setError(null);
     setResult(null);
@@ -1396,7 +1442,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
       setActiveComparisonUsers(null);
       setLoadingSubtitleIndex(0);
     }
-  }, [canSubmit, form.left, form.locale, form.right]);
+  }, [canSubmit, form.left, form.locale, form.right, messages.error.requestFailed, messages.error.streamUnsupported]);
 
   const regenerateComparison = useCallback(() => {
     void submitComparison({ forceRefresh: true });
@@ -1406,12 +1452,20 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     setBattleOverlay((current) => (current?.id === id ? null : current));
   }, []);
 
+  const updateLocale = useCallback((locale: LocaleCode) => {
+    setForm((current) => ({ ...current, locale }));
+  }, []);
+
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent("app-locale-change", { detail: { locale: form.locale } }));
+  }, [form.locale]);
+
   useEffect(() => {
     if (!initialUsers.autoStart || !initialUsers.left || !initialUsers.right) {
       return;
     }
 
-    const autoStartKey = `${initialUsers.left.trim()}\u0000${initialUsers.right.trim()}`;
+    const autoStartKey = `${initialUsers.left.trim()}\u0000${initialUsers.right.trim()}\u0000${initialUsers.locale ?? "zh-CN"}`;
     if (autoStartedComparisonKeyRef.current === autoStartKey) {
       return;
     }
@@ -1422,7 +1476,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [initialUsers.autoStart, initialUsers.left, initialUsers.right, submitComparison]);
+  }, [initialUsers.autoStart, initialUsers.left, initialUsers.locale, initialUsers.right, submitComparison]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1430,7 +1484,7 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
   }
 
   return (
-    <>
+    <ComparisonI18nContext.Provider value={{ appMessages, locale: form.locale, messages }}>
       {battleOverlay ? <BattleOverlay animation={battleOverlay} onComplete={completeBattleOverlay} key={battleOverlay.id} /> : null}
       <div className="workspace">
       <section className="control-panel">
@@ -1439,8 +1493,8 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
             <Swords size={24} aria-hidden="true" />
           </div>
           <div>
-            <h1 className="brand-title">{zhCN.app.title}</h1>
-            <p className="brand-kicker">{zhCN.app.tagline}</p>
+            <h1 className="brand-title">{appMessages.title}</h1>
+            <p className="brand-kicker">{appMessages.tagline}</p>
           </div>
         </div>
 
@@ -1474,9 +1528,10 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
             <select
               className="select-input"
               value={form.locale}
-              onChange={(event) => setForm((current) => ({ ...current, locale: event.target.value }))}
+              onChange={(event) => updateLocale(normalizeLocaleCode(event.target.value))}
             >
               <option value="zh-CN">{messages.form.zhCN}</option>
+              <option value="en-US">{messages.form.enUS}</option>
             </select>
           </label>
 
@@ -1506,6 +1561,6 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
         )}
       </section>
       </div>
-    </>
+    </ComparisonI18nContext.Provider>
   );
 }

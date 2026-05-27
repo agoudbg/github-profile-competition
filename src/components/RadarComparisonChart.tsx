@@ -10,19 +10,22 @@ import {
   ResponsiveContainer,
   Tooltip
 } from "recharts";
-import { zhCN } from "@/i18n/messages";
-import type { RadarPoint } from "@/lib/types";
+import { getMessages } from "@/i18n/messages";
+import type { LocaleCode, RadarPoint } from "@/lib/types";
 
 type RadarComparisonChartProps = {
   data: RadarPoint[];
+  locale: LocaleCode;
   usernames: [string, string];
 };
 
 const chartColors = ["#0f766e", "#c05621"] as const;
 
-export function RadarComparisonChart({ data, usernames }: RadarComparisonChartProps) {
+export function RadarComparisonChart({ data, locale, usernames }: RadarComparisonChartProps) {
+  const messages = getMessages(locale).radarChart;
+
   return (
-    <div className="chart-frame" role="img" aria-label={zhCN.radarChart.comparisonLabel(usernames[0], usernames[1])}>
+    <div className="chart-frame" role="img" aria-label={messages.comparisonLabel(usernames[0], usernames[1])}>
       <ResponsiveContainer width="100%" height={360}>
         <RechartsRadarChart data={data} outerRadius="72%">
           <PolarGrid stroke="#d8d1c3" />

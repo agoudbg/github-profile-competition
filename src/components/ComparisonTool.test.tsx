@@ -4,8 +4,9 @@ import { ComparisonTool } from "@/components/ComparisonTool";
 import type { CompareResponse, ScoreDimension, UserDataset } from "@/lib/types";
 
 vi.mock("next/dynamic", () => ({
-  default: () => function MockDynamicChart() {
-    return <div>雷达图加载中</div>;
+  default: () =>
+    function MockDynamicChart({ locale }: { locale: string }) {
+      return <div>{locale === "en-US" ? "Loading radar chart" : "雷达图加载中"}</div>;
   }
 }));
 
@@ -225,7 +226,7 @@ describe("ComparisonTool", () => {
     fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
 
     expect(await screen.findByText("正在对比")).toBeInTheDocument();
-    expect(window.location.search).toBe("?a=alpha-user&b=beta+user");
+    expect(window.location.search).toBe("?a=alpha-user&b=beta+user&locale=zh-CN");
   });
 
   it("shows cached result metadata and sends forceRefresh when regenerating", async () => {
@@ -274,8 +275,49 @@ describe("ComparisonTool", () => {
     const shareUrl = new URL(String(clipboardWrite.mock.calls[0]?.[0]));
     expect(shareUrl.searchParams.get("a")).toBe("alpha");
     expect(shareUrl.searchParams.get("b")).toBe("beta");
+    expect(shareUrl.searchParams.get("locale")).toBe("zh-CN");
     expect(shareUrl.searchParams.get("share")).toBe("1");
     expect(await screen.findByText("链接已复制")).toBeInTheDocument();
+  });
+
+  it("uses the selected language for the interface, request body, and share link", async () => {
+    const clipboardWrite = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        writeText: clipboardWrite
+      }
+    });
+    const englishResult = resultResponse();
+    englishResult.locale = "en-US";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(streamResult(englishResult));
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("语言"), { target: { value: "en-US" } });
+
+    expect(screen.getByRole("heading", { name: "GitHub Profile Competition" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Account A")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start comparison" })).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText("Account A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("Account B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "Start comparison" }));
+
+    expect(await screen.findByText("Share result")).toBeInTheDocument();
+    const [, init] = fetchMock.mock.calls[0] ?? [];
+    const body = JSON.parse(String(init?.body)) as { locale?: string };
+
+    expect(body.locale).toBe("en-US");
+    expect(window.location.search).toBe("?a=alpha&b=beta&locale=en-US");
+
+    fireEvent.click(screen.getByRole("button", { name: "Copy link" }));
+
+    await waitFor(() => expect(clipboardWrite).toHaveBeenCalledTimes(1));
+    const shareUrl = new URL(String(clipboardWrite.mock.calls[0]?.[0]));
+
+    expect(shareUrl.searchParams.get("locale")).toBe("en-US");
+    expect(shareUrl.searchParams.get("share")).toBe("1");
   });
 
   it("opens the canvas share image modal", async () => {
@@ -360,7 +402,7 @@ describe("ComparisonTool", () => {
     expect(issueUrl.origin).toBe("https://github.com");
     expect(issueUrl.pathname).toBe("/agoudbg/github-profile-competition/issues/new");
     expect(issueUrl.searchParams.get("title")).toContain("alpha vs beta");
-    expect(issueUrl.searchParams.get("body")).toContain("What seems inaccurate?");
+    expect(issueUrl.searchParams.get("body")).toContain("哪些数据看起来不准确？");
   });
 
   it("collapses the timeline after a streaming comparison completes", async () => {

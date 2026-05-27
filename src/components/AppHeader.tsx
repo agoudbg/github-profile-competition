@@ -2,38 +2,53 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { BarChart3, ExternalLink, GitCompareArrows, Menu, Swords, X } from "lucide-react";
-import { zhCN } from "@/i18n/messages";
+import { getMessages, normalizeLocaleCode } from "@/i18n/messages";
+import type { LocaleCode } from "@/lib/types";
 
 const repositoryUrl = "https://github.com/agoudbg/github-profile-competition";
-const messages = zhCN.appHeader;
-
-const navigationItems = [
-  {
-    kind: "internal",
-    href: "/",
-    label: messages.navigation.compare,
-    icon: GitCompareArrows
-  },
-  {
-    kind: "internal",
-    href: "/leaderboard",
-    label: messages.navigation.leaderboard,
-    icon: BarChart3
-  },
-  {
-    kind: "external",
-    href: repositoryUrl,
-    label: messages.navigation.github,
-    icon: ExternalLink
-  }
-] as const;
 
 export function AppHeader() {
   const pathname = usePathname();
+  const [locale, setLocale] = useState<LocaleCode>("zh-CN");
+  const allMessages = getMessages(locale);
+  const messages = allMessages.appHeader;
+  const navigationItems = [
+    {
+      kind: "internal",
+      href: "/",
+      label: messages.navigation.compare,
+      icon: GitCompareArrows
+    },
+    {
+      kind: "internal",
+      href: "/leaderboard",
+      label: messages.navigation.leaderboard,
+      icon: BarChart3
+    },
+    {
+      kind: "external",
+      href: repositoryUrl,
+      label: messages.navigation.github,
+      icon: ExternalLink
+    }
+  ] as const;
   const navigationId = useId();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    function handleLocaleChange(event: Event) {
+      const nextLocale = event instanceof CustomEvent ? event.detail?.locale : undefined;
+      if (typeof nextLocale === "string") {
+        setLocale(normalizeLocaleCode(nextLocale));
+      }
+    }
+
+    window.addEventListener("app-locale-change", handleLocaleChange);
+
+    return () => window.removeEventListener("app-locale-change", handleLocaleChange);
+  }, []);
 
   return (
     <header className="app-header">
@@ -44,8 +59,8 @@ export function AppHeader() {
               <Swords size={20} aria-hidden="true" />
             </span>
             <span>
-              <strong>{zhCN.app.title}</strong>
-              <small>{zhCN.app.tagline}</small>
+              <strong>{allMessages.app.title}</strong>
+              <small>{allMessages.app.tagline}</small>
             </span>
           </Link>
 

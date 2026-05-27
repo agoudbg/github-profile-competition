@@ -9,13 +9,14 @@ describe("getSafeClientMessage", () => {
       502
     );
 
-    expect(getSafeClientMessage(error)).toBe("Analysis failed. Please try again later.");
+    expect(getSafeClientMessage(error)).toBe("分析失败，请稍后重试。");
   });
 
   it("hides unexpected server details from client responses", () => {
     const error = new Error("Database password appeared in stack trace.");
 
-    expect(getSafeClientMessage(error)).toBe("Request failed. Please try again later.");
+    expect(getSafeClientMessage(error)).toBe("请求失败，请稍后重试。");
+    expect(getSafeClientMessage(error, "en-US")).toBe("Request failed. Please try again later.");
   });
 
   it("keeps client-fixable errors visible", () => {

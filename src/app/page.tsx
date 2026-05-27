@@ -1,4 +1,5 @@
 import { ComparisonTool } from "@/components/ComparisonTool";
+import { normalizeLocaleCode } from "@/i18n/messages";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,7 @@ export default async function HomePage({ searchParams }: HomePageProps) {
   const initialUsers = {
     left: getFirstSearchParam(params.a),
     right: getFirstSearchParam(params.b),
+    locale: normalizeLocaleCode(getFirstSearchParam(params.locale) || getFirstSearchParam(params.lang)),
     autoStart: getFirstSearchParam(params.share) === "1"
   };
 

@@ -1,4 +1,4 @@
-import { getMessages, zhCN } from "@/i18n/messages";
+import { getMessages, type Messages } from "@/i18n/messages";
 import type {
   AccountScore,
   ComparisonMetrics,
@@ -56,16 +56,16 @@ function formatNumber(value: number): string {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
 
-function scoreFollowers(dataset: UserDataset): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
+function scoreFollowers(dataset: UserDataset, messages: Messages): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
   const followers = dataset.profile.followers;
   return {
     score: logScaleScore(followers, 50_000),
     rawValue: followers,
-    detail: zhCN.scoring.followersDetail(formatNumber(followers), formatNumber(dataset.profile.following))
+    detail: messages.scoring.followersDetail(formatNumber(followers), formatNumber(dataset.profile.following))
   };
 }
 
-function scoreRepositories(dataset: UserDataset, now: Date): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
+function scoreRepositories(dataset: UserDataset, now: Date, messages: Messages): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
   const total = dataset.profile.publicRepos;
   const fetched = dataset.repositories.length;
   const active = activeRepositories(dataset, now);
@@ -77,11 +77,11 @@ function scoreRepositories(dataset: UserDataset, now: Date): Pick<ScoreDimension
   return {
     score: clampScore(score),
     rawValue: total,
-    detail: zhCN.scoring.repositoriesDetail(formatNumber(total), formatNumber(active), Math.round(ownedRatio * 100))
+    detail: messages.scoring.repositoriesDetail(formatNumber(total), formatNumber(active), Math.round(ownedRatio * 100))
   };
 }
 
-function scoreProjectImpact(dataset: UserDataset): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
+function scoreProjectImpact(dataset: UserDataset, messages: Messages): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
   const stars = sumByRepository(dataset, (repository) => repository.stargazersCount);
   const forks = sumByRepository(dataset, (repository) => repository.forksCount);
   const watchers = sumByRepository(dataset, (repository) => repository.watchersCount);
@@ -95,11 +95,11 @@ function scoreProjectImpact(dataset: UserDataset): Pick<ScoreDimension, "score" 
   return {
     score: clampScore(score),
     rawValue: stars + forks,
-    detail: zhCN.scoring.projectImpactDetail(formatNumber(stars), formatNumber(forks), formatNumber(topRepoStars))
+    detail: messages.scoring.projectImpactDetail(formatNumber(stars), formatNumber(forks), formatNumber(topRepoStars))
   };
 }
 
-function scoreOpenSourceContribution(dataset: UserDataset): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
+function scoreOpenSourceContribution(dataset: UserDataset, messages: Messages): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
   const stats = dataset.contributions;
   const contributionScore =
     logScaleScore(stats.totalContributions, 10_000) * 0.55 +
@@ -109,7 +109,7 @@ function scoreOpenSourceContribution(dataset: UserDataset): Pick<ScoreDimension,
   return {
     score: clampScore(contributionScore),
     rawValue: stats.totalContributions,
-    detail: zhCN.scoring.contributionDetail(
+    detail: messages.scoring.contributionDetail(
       formatNumber(stats.totalContributions),
       formatNumber(stats.pullRequests),
       formatNumber(stats.issues),
@@ -119,7 +119,7 @@ function scoreOpenSourceContribution(dataset: UserDataset): Pick<ScoreDimension,
   };
 }
 
-function scoreActivity(dataset: UserDataset, now: Date): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
+function scoreActivity(dataset: UserDataset, now: Date, messages: Messages): Pick<ScoreDimension, "score" | "rawValue" | "detail"> {
   const active = activeRepositories(dataset, now);
   const updatedRecently = dataset.repositories.filter(
     (repository) => daysSince(repository.updatedAt, now) <= 90 || daysSince(repository.pushedAt, now) <= 90
@@ -138,18 +138,18 @@ function scoreActivity(dataset: UserDataset, now: Date): Pick<ScoreDimension, "s
   return {
     score: clampScore(score),
     rawValue: active + dataset.contributions.recentEvents,
-    detail: zhCN.scoring.activityDetail(formatNumber(active), formatNumber(updatedRecently), formatNumber(dataset.contributions.activeDays))
+    detail: messages.scoring.activityDetail(formatNumber(active), formatNumber(updatedRecently), formatNumber(dataset.contributions.activeDays))
   };
 }
 
 function buildDimensions(dataset: UserDataset, locale: LocaleCode, now: Date): ScoreDimension[] {
   const messages = getMessages(locale);
   const dimensions: Array<[DimensionKey, Pick<ScoreDimension, "score" | "rawValue" | "detail">]> = [
-    ["followers", scoreFollowers(dataset)],
-    ["repositories", scoreRepositories(dataset, now)],
-    ["projectImpact", scoreProjectImpact(dataset)],
-    ["openSourceContribution", scoreOpenSourceContribution(dataset)],
-    ["activityAndConsistency", scoreActivity(dataset, now)]
+    ["followers", scoreFollowers(dataset, messages)],
+    ["repositories", scoreRepositories(dataset, now, messages)],
+    ["projectImpact", scoreProjectImpact(dataset, messages)],
+    ["openSourceContribution", scoreOpenSourceContribution(dataset, messages)],
+    ["activityAndConsistency", scoreActivity(dataset, now, messages)]
   ];
 
   return dimensions.map(([key, values]) => ({
@@ -159,7 +159,7 @@ function buildDimensions(dataset: UserDataset, locale: LocaleCode, now: Date): S
   }));
 }
 
-function buildWinner(accounts: AccountScore[]): WinnerResult {
+function buildWinner(accounts: AccountScore[], messages: Messages): WinnerResult {
   const [first, second] = [...accounts].sort((left, right) => right.totalScore - left.totalScore);
   if (!first || !second) {
     return null;
@@ -173,7 +173,7 @@ function buildWinner(accounts: AccountScore[]): WinnerResult {
   return {
     username: first.username,
     margin,
-    reason: zhCN.scoring.winnerReason(first.username, margin)
+    reason: messages.scoring.winnerReason(first.username, margin)
   };
 }
 
@@ -182,6 +182,7 @@ export function calculateComparisonMetrics(
   locale: LocaleCode = "zh-CN",
   now = new Date()
 ): ComparisonMetrics {
+  const messages = getMessages(locale);
   const accounts = datasets.map<AccountScore>((dataset) => {
     const dimensions = buildDimensions(dataset, locale, now);
     const totalScore = clampScore(
@@ -214,13 +215,14 @@ export function calculateComparisonMetrics(
   return {
     accounts,
     radar,
-    winner: buildWinner(accounts)
+    winner: buildWinner(accounts, messages)
   };
 }
 
 export function composeComparisonMetricsWithLlmScores(
   metrics: ComparisonMetrics,
-  llmScores: Array<{ username: string; score: number }>
+  llmScores: Array<{ username: string; score: number }>,
+  locale: LocaleCode = "zh-CN"
 ): ComparisonMetrics {
   const llmScoreByUsername = new Map(llmScores.map((item) => [item.username, clampScore(item.score)]));
   const accounts = metrics.accounts.map<AccountScore>((account) => {
@@ -238,6 +240,6 @@ export function composeComparisonMetricsWithLlmScores(
   return {
     ...metrics,
     accounts,
-    winner: buildWinner(accounts)
+    winner: buildWinner(accounts, getMessages(locale))
   };
 }

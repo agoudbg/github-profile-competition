@@ -4,8 +4,9 @@ import { Download, X } from "lucide-react";
 import QRCode from "qrcode";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { zhCN } from "@/i18n/messages";
+import { getMessages, type Messages } from "@/i18n/messages";
 import { SHARE_VALID_DAYS, type ShareAccount, type SharePayload } from "@/lib/share";
+import type { LocaleCode } from "@/lib/types";
 
 const CANVAS_WIDTH = 1080;
 const CANVAS_HEIGHT = 1500;
@@ -18,9 +19,9 @@ const WARM = "#c05621";
 const SURFACE = "#f7f4ee";
 const ACCENT_SOFT = "#d7f2ec";
 const WARM_SOFT = "#f6dfc7";
-const messages = zhCN.shareImage;
 
 type AvatarMap = Record<string, HTMLImageElement | null>;
+type ShareImageMessages = Messages["shareImage"];
 
 type RadarPoint = {
   angle: number;
@@ -33,14 +34,14 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function formatDate(value: string): string {
+function formatDate(value: string, messages: ShareImageMessages, locale: LocaleCode): string {
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
     return messages.unknownDate;
   }
 
-  return new Intl.DateTimeFormat("zh-CN", {
+  return new Intl.DateTimeFormat(locale, {
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
@@ -133,7 +134,9 @@ function drawScoreCard(
   y: number,
   width: number,
   isWinner: boolean,
-  color: string
+  color: string,
+  messages: ShareImageMessages,
+  notAvailable: string
 ): void {
   drawCard(context, x, y, width, 205);
   drawAvatar(context, avatar, x + 28, y + 18, 62, account.username, color);
@@ -170,7 +173,7 @@ function drawScoreCard(
     color: INK_MUTED,
     font: "800 19px sans-serif"
   });
-  drawText(context, messages.llmScore(account.llmScore ?? zhCN.comparison.common.notAvailable), x + width - 190, y + 172, {
+  drawText(context, messages.llmScore(account.llmScore ?? notAvailable), x + width - 190, y + 172, {
     color: INK_MUTED,
     font: "800 19px sans-serif"
   });
@@ -225,7 +228,13 @@ function drawRadarPolygon(
   context.stroke();
 }
 
-function drawRadarChart(context: CanvasRenderingContext2D, left: ShareAccount, right: ShareAccount): void {
+function drawRadarChart(
+  context: CanvasRenderingContext2D,
+  left: ShareAccount,
+  right: ShareAccount,
+  messages: ShareImageMessages,
+  followersLabel: string
+): void {
   const centerX = 540;
   const centerY = 928;
   const radius = 205;
@@ -272,7 +281,7 @@ function drawRadarChart(context: CanvasRenderingContext2D, left: ShareAccount, r
 
   for (const point of points) {
     const labelX = centerX + Math.cos(point.angle) * labelRadius;
-    const labelY = centerY + Math.sin(point.angle) * labelRadius - (point.label === zhCN.dimensions.followers ? 10 : 0);
+    const labelY = centerY + Math.sin(point.angle) * labelRadius - (point.label === followersLabel ? 10 : 0);
     const align: CanvasTextAlign = labelX < centerX - 30 ? "right" : labelX > centerX + 30 ? "left" : "center";
 
     drawText(context, point.label, labelX, labelY, {
@@ -327,7 +336,14 @@ async function drawQrCode(context: CanvasRenderingContext2D, pageUrl: string, x:
   context.drawImage(qrCanvas, x, y, size, size);
 }
 
-async function drawShareImage(context: CanvasRenderingContext2D, payload: SharePayload, avatars: AvatarMap): Promise<void> {
+async function drawShareImage(
+  context: CanvasRenderingContext2D,
+  payload: SharePayload,
+  avatars: AvatarMap,
+  allMessages: Messages,
+  locale: LocaleCode
+): Promise<void> {
+  const messages = allMessages.shareImage;
   const [left, right] = payload.accounts;
   const winner = payload.winner;
   const margin = Math.abs(left.totalScore - right.totalScore);
@@ -345,7 +361,7 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
   context.fillStyle = gradient;
   context.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
-  drawText(context, zhCN.app.title, 70, 86, {
+  drawText(context, allMessages.app.title, 70, 86, {
     color: INK_MUTED,
     font: "800 24px sans-serif"
   });
@@ -370,11 +386,33 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
     baseline: "middle"
   });
 
-  drawScoreCard(context, left, avatars[left.username] ?? null, 70, 292, 450, left.username === winner, ACCENT);
-  drawScoreCard(context, right, avatars[right.username] ?? null, 560, 292, 450, right.username === winner, WARM);
+  drawScoreCard(
+    context,
+    left,
+    avatars[left.username] ?? null,
+    70,
+    292,
+    450,
+    left.username === winner,
+    ACCENT,
+    messages,
+    allMessages.comparison.common.notAvailable
+  );
+  drawScoreCard(
+    context,
+    right,
+    avatars[right.username] ?? null,
+    560,
+    292,
+    450,
+    right.username === winner,
+    WARM,
+    messages,
+    allMessages.comparison.common.notAvailable
+  );
 
   drawCard(context, 70, 540, 940, 760);
-  drawRadarChart(context, left, right);
+  drawRadarChart(context, left, right, messages, allMessages.dimensions.followers);
 
   context.fillStyle = SURFACE;
   roundRect(context, 70, 1328, 940, 126, 18);
@@ -383,7 +421,7 @@ async function drawShareImage(context: CanvasRenderingContext2D, payload: ShareP
     color: INK,
     font: "900 24px sans-serif"
   });
-  drawText(context, messages.validity(SHARE_VALID_DAYS, formatDate(payload.expiresAt)), 104, 1410, {
+  drawText(context, messages.validity(SHARE_VALID_DAYS, formatDate(payload.expiresAt, messages, locale)), 104, 1410, {
     color: INK_MUTED,
     font: "18px sans-serif",
     maxWidth: 660
@@ -406,11 +444,14 @@ function loadAvatar(url: string): Promise<HTMLImageElement | null> {
 }
 
 type ShareImageModalProps = {
+  locale: LocaleCode;
   payload: SharePayload;
   onClose: () => void;
 };
 
-export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
+export function ShareImageModal({ locale, payload, onClose }: ShareImageModalProps) {
+  const allMessages = getMessages(locale);
+  const messages = allMessages.shareImage;
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [canvasError, setCanvasError] = useState<string | null>(null);
   const fileName = useMemo(() => {
@@ -445,7 +486,7 @@ export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
         return;
       }
 
-      await drawShareImage(context, payload, Object.fromEntries(avatarEntries));
+      await drawShareImage(context, payload, Object.fromEntries(avatarEntries), allMessages, locale);
       setCanvasError(null);
     }
 
@@ -454,7 +495,7 @@ export function ShareImageModal({ payload, onClose }: ShareImageModalProps) {
     return () => {
       isCancelled = true;
     };
-  }, [payload]);
+  }, [allMessages, locale, messages.canvasUnsupported, payload]);
 
   const downloadImage = useCallback(() => {
     if (!canvasRef.current) {

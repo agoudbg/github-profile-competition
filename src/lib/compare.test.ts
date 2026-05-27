@@ -95,7 +95,7 @@ describe("compareGitHubProfiles", () => {
 
     const errorEvent = events.find((event) => event.phase === "error");
 
-    expect(errorEvent?.detail).toBe("Analysis failed. Please try again later.");
+    expect(errorEvent?.detail).toBe("分析失败，请稍后重试。");
     expect(errorEvent?.detail).not.toContain("Provider response");
     expect(errorEvent?.detail).not.toContain("sk-or-v1-secret");
   });
