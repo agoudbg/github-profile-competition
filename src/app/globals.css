@@ -2007,6 +2007,10 @@ a {
   padding-left: 18px;
 }
 
+.top-repo-list {
+  padding-left: 0;
+}
+
 .recommendation-list li,
 .caveat-list li,
 .top-repo-list li {
