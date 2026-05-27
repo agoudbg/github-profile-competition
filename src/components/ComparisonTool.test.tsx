@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ComparisonTool } from "@/components/ComparisonTool";
-import type { CompareResponse, UserDataset } from "@/lib/types";
+import type { CompareResponse, ScoreDimension, UserDataset } from "@/lib/types";
 
 vi.mock("next/dynamic", () => ({
   default: () => function MockDynamicChart() {
@@ -50,6 +50,16 @@ function dataset(username: string): UserDataset {
   };
 }
 
+function scoreDimension(label: string): ScoreDimension {
+  return {
+    key: "followers",
+    label,
+    score: 64,
+    rawValue: 1,
+    detail: `${label} detail`
+  };
+}
+
 function resultResponse(cache?: CompareResponse["cache"]): CompareResponse {
   return {
     users: [dataset("alpha"), dataset("beta")],
@@ -60,14 +70,14 @@ function resultResponse(cache?: CompareResponse["cache"]): CompareResponse {
           totalScore: 80,
           systemScore: 70,
           llmScore: 90,
-          dimensions: []
+          dimensions: [scoreDimension("追随者")]
         },
         {
           username: "beta",
           totalScore: 72,
           systemScore: 70,
           llmScore: 74,
-          dimensions: []
+          dimensions: [scoreDimension("追随者")]
         }
       ],
       radar: [],
@@ -80,13 +90,60 @@ function resultResponse(cache?: CompareResponse["cache"]): CompareResponse {
     llm: {
       status: "generated",
       analysis: {
-        summary: "cached summary",
+        summary: "cached summary [^github-timeline]",
         winner: null,
-        accountScores: [],
-        dimensionInsights: [],
-        accountAnalyses: [],
+        accountScores: [
+          {
+            username: "alpha",
+            score: 90,
+            reason: "alpha reason"
+          },
+          {
+            username: "beta",
+            score: 74,
+            reason: "beta reason"
+          }
+        ],
+        dimensionInsights: [
+          {
+            dimension: "followers",
+            title: "Followers insight",
+            accounts: [
+              {
+                username: "alpha",
+                insight: "alpha insight"
+              },
+              {
+                username: "beta",
+                insight: "beta insight"
+              }
+            ],
+            verdict: "followers verdict"
+          }
+        ],
+        accountAnalyses: [
+          {
+            username: "alpha",
+            strengths: ["alpha strength"],
+            risks: [],
+            recommendations: []
+          },
+          {
+            username: "beta",
+            strengths: [],
+            risks: ["beta risk"],
+            recommendations: []
+          }
+        ],
         caveats: [],
-        sources: []
+        sources: [
+          {
+            id: "github-timeline",
+            label: "GitHub timeline",
+            url: "https://example.test/github-timeline",
+            note: "Timeline note"
+          }
+        ]
       }
     },
     timeline: [],
@@ -258,5 +315,92 @@ describe("ComparisonTool", () => {
     expect(await screen.findByRole("dialog", { name: "保存结果图片" })).toBeInTheDocument();
     expect(screen.getByText("下载 PNG")).toBeInTheDocument();
     expect(openMock).not.toHaveBeenCalled();
+  });
+
+  it("inserts the LLM summary before the profile overview and keeps detail cards after metrics", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(streamResult(resultResponse()));
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("账号 A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("账号 B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
+
+    expect(await screen.findByText("分享结果")).toBeInTheDocument();
+
+    const resultHeading = screen.getByRole("heading", { name: "综合结果" });
+    const analysisHeading = screen.getByRole("heading", { name: "大模型评价" });
+    const overviewHeading = screen.getByRole("heading", { name: "资料概览" });
+    const detailHeading = screen.getByRole("heading", { name: "模型评分" });
+    const dimensionInsightHeading = screen.getByRole("heading", { name: "维度洞察" });
+
+    expect(resultHeading.compareDocumentPosition(analysisHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(analysisHeading.compareDocumentPosition(overviewHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(overviewHeading.compareDocumentPosition(detailHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(detailHeading.compareDocumentPosition(dimensionInsightHeading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(screen.getByRole("link", { name: "[1]" })).toHaveAttribute("href", "#source-github-timeline");
+    expect(screen.getByText(/\[1\] github-timeline/)).toBeInTheDocument();
+  });
+
+  it("links the metric table footer to a prefilled data accuracy issue", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(streamResult(resultResponse()));
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("账号 A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("账号 B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
+
+    expect(await screen.findByText("分享结果")).toBeInTheDocument();
+
+    const issueLinks = screen.getAllByRole("link", { name: "[数据不准确？]" });
+    const issueUrl = new URL(issueLinks[0]?.getAttribute("href") ?? "");
+
+    expect(issueLinks).toHaveLength(1);
+    expect(issueUrl.origin).toBe("https://github.com");
+    expect(issueUrl.pathname).toBe("/agoudbg/github-profile-competition/issues/new");
+    expect(issueUrl.searchParams.get("title")).toContain("alpha vs beta");
+    expect(issueUrl.searchParams.get("body")).toContain("What seems inaccurate?");
+  });
+
+  it("collapses the timeline after a streaming comparison completes", async () => {
+    const completedResult = resultResponse();
+    completedResult.timeline = [
+      {
+        id: "timeline-1",
+        at: "2026-05-25T00:00:00.000Z",
+        phase: "model",
+        title: "读取资料",
+        detail: "正在读取资料",
+        status: "completed"
+      }
+    ];
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(
+      new Response(
+        [
+          JSON.stringify({ type: "timeline", event: completedResult.timeline[0] }),
+          JSON.stringify({ type: "result", result: completedResult }),
+          ""
+        ].join("\n"),
+        {
+          headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8"
+          }
+        }
+      )
+    );
+
+    render(<ComparisonTool />);
+
+    fireEvent.change(screen.getByLabelText("账号 A"), { target: { value: "alpha" } });
+    fireEvent.change(screen.getByLabelText("账号 B"), { target: { value: "beta" } });
+    fireEvent.click(screen.getByRole("button", { name: "开始比拼" }));
+
+    expect(await screen.findByRole("button", { name: "展开" })).toBeInTheDocument();
+    expect(screen.queryByText("正在读取资料")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "展开" }));
+
+    expect(screen.getByText("正在读取资料")).toBeInTheDocument();
   });
 });

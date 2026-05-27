@@ -5,6 +5,8 @@ import Image from "next/image";
 import {
   AlertTriangle,
   BarChart3,
+  ChevronDown,
+  ChevronUp,
   Check,
   Copy,
   ExternalLink,
@@ -96,6 +98,8 @@ const dimensionFormulaRows = [
     detail: "近一年活跃仓库占 38%，近 90 天更新占 22%，活跃天数占 22%，最近更新时间新鲜度占 18%。"
   }
 ] as const;
+
+const repositoryIssueUrl = "https://github.com/agoudbg/github-profile-competition/issues/new";
 
 type FormState = {
   left: string;
@@ -230,6 +234,23 @@ function buildGitHubAvatarUrl(username: string): string {
   return `https://github.com/${encodeURIComponent(username)}.png?size=180`;
 }
 
+function buildDataIssueUrl(usernames: [string, string]): string {
+  const query = new URLSearchParams({
+    title: `Data accuracy issue: ${usernames[0]} vs ${usernames[1]}`,
+    body: [
+      `Compared users: ${usernames[0]} vs ${usernames[1]}`,
+      "",
+      "What seems inaccurate?",
+      "",
+      "Expected correction:",
+      "",
+      "Evidence URL (optional):"
+    ].join("\n")
+  });
+
+  return `${repositoryIssueUrl}?${query.toString()}`;
+}
+
 function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
   const topRepositories = getTopRepositories(repositories);
 
@@ -255,10 +276,10 @@ function renderRepositoryList(repositories: GitHubRepository[]): ReactNode {
 
 function TextWithFootnotes({
   text,
-  sourceIds
+  sourceIndexById
 }: {
   text: string;
-  sourceIds: Set<string>;
+  sourceIndexById: Map<string, number>;
 }) {
   const parts = text.split(/(\[\^[^\]]+\])/g);
 
@@ -271,14 +292,15 @@ function TextWithFootnotes({
         }
 
         const id = match[1] ?? "";
+        const footnoteNumber = sourceIndexById.get(id);
         return (
           <a
-            className={sourceIds.has(id) ? "footnote-ref" : "footnote-ref missing"}
+            className={footnoteNumber ? "footnote-ref" : "footnote-ref missing"}
             href={`#source-${id}`}
             key={`${part}-${index}`}
-            title={sourceIds.has(id) ? "查看来源" : "来源未列出"}
+            title={footnoteNumber ? `查看来源 ${id}` : "来源未列出"}
           >
-            [{id}]
+            [{footnoteNumber ?? "?"}]
           </a>
         );
       })}
@@ -402,40 +424,76 @@ function ErrorState({ message }: { message: string }) {
 }
 
 function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]; isLoading: boolean }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const listWrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!isLoading) {
+      return;
+    }
+
+    const listWrapElement = listWrapRef.current;
+    if (!listWrapElement) {
+      return;
+    }
+
+    listWrapElement.scrollTop = listWrapElement.scrollHeight;
+  }, [isLoading, timeline.length]);
+
   if (timeline.length === 0) {
     return null;
   }
 
+  const shouldShowTimeline = isLoading || isExpanded;
+
   return (
     <section className="timeline-panel" aria-label="模型行动时间线">
-      <div className="panel-heading">
+      <div className={shouldShowTimeline ? "panel-heading" : "panel-heading timeline-heading-collapsed"}>
         <div>
           <h2 className="panel-title">模型行动时间线</h2>
           <p className="panel-subtitle">展示模型可观察的资料读取、工具调用和证据摘要。</p>
         </div>
-        {isLoading ? <span className="live-badge">流式生成中</span> : <span className="live-badge done">已完成</span>}
+        <div className="timeline-actions">
+          {isLoading ? <span className="live-badge">流式生成中</span> : <span className="live-badge done">已完成</span>}
+          {!isLoading ? (
+            <button
+              aria-expanded={isExpanded}
+              className="icon-text-button"
+              type="button"
+              onClick={() => setIsExpanded((current) => !current)}
+              title={isExpanded ? "隐藏模型思考" : "展开模型思考"}
+            >
+              {isExpanded ? <ChevronUp size={17} aria-hidden="true" /> : <ChevronDown size={17} aria-hidden="true" />}
+              {isExpanded ? "收起" : "展开"}
+            </button>
+          ) : null}
+        </div>
       </div>
-      <ol className="timeline-list">
-        {timeline.map((event) => (
-          <li className={`timeline-item ${event.status}`} key={event.id}>
-            <div className="timeline-dot" aria-hidden="true" />
-            <div className="timeline-content">
-              <div className="timeline-head">
-                <span>{event.title}</span>
-                <time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
-              </div>
-              <p>{event.detail}</p>
-              {event.sourceIds?.length ? (
-                <div className="timeline-sources">
-                  {event.sourceIds.map((sourceId) => (
-                    <span key={sourceId}>来源 {sourceId}</span>
-                  ))}
+      {shouldShowTimeline ? (
+        <div className={isLoading ? "timeline-list-wrap live" : "timeline-list-wrap"} ref={listWrapRef}>
+          <ol className="timeline-list">
+            {timeline.map((event) => (
+              <li className={`timeline-item ${event.status}`} key={event.id}>
+                <div className="timeline-dot" aria-hidden="true" />
+                <div className="timeline-content">
+                  <div className="timeline-head">
+                    <span>{event.title}</span>
+                    <time>{new Date(event.at).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
+                  </div>
+                  <p>{event.detail}</p>
+                  {event.sourceIds?.length ? (
+                    <div className="timeline-sources">
+                      {event.sourceIds.map((sourceId) => (
+                        <span key={sourceId}>来源 {sourceId}</span>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-            </div>
-          </li>
-        ))}
-      </ol>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -721,6 +779,7 @@ function OverviewComparison({ datasets }: { datasets: [UserDataset, UserDataset]
 
 function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
   const [left, right] = accounts;
+  const usernames = [left.username, right.username] as [string, string];
 
   return (
     <section className="metric-table-wrap" aria-label="维度对比表格">
@@ -757,14 +816,21 @@ function MetricTable({ accounts }: { accounts: [AccountScore, AccountScore] }) {
           })}
         </tbody>
       </table>
+      <div className="metric-table-footer">
+        <a className="dimension-issue-link" href={buildDataIssueUrl(usernames)} target="_blank" rel="noreferrer">
+          [数据不准确？]
+        </a>
+      </div>
     </section>
   );
 }
 
-function AnalysisPanel({ result, usernames, finalWinner }: { result: CompareResponse; usernames: [string, string]; finalWinner: string | null }) {
-  const [leftUsername, rightUsername] = usernames;
-  const analysisByUsername = new Map(result.llm.analysis.accountAnalyses.map((analysis) => [analysis.username, analysis]));
-  const sourceIds = new Set(result.llm.analysis.sources.map((source) => source.id));
+function getSourceIndexById(result: CompareResponse): Map<string, number> {
+  return new Map(result.llm.analysis.sources.map((source, index) => [source.id, index + 1]));
+}
+
+function AnalysisSummaryCard({ result }: { result: CompareResponse }) {
+  const sourceIndexById = getSourceIndexById(result);
 
   return (
     <section className="analysis-panel">
@@ -772,7 +838,7 @@ function AnalysisPanel({ result, usernames, finalWinner }: { result: CompareResp
         <div>
           <h2 className="panel-title">大模型评价</h2>
           <p className="analysis-summary">
-            <TextWithFootnotes text={result.llm.analysis.summary} sourceIds={sourceIds} />
+            <TextWithFootnotes text={result.llm.analysis.summary} sourceIndexById={sourceIndexById} />
           </p>
         </div>
         {result.llm.analysis.winner ? (
@@ -787,102 +853,156 @@ function AnalysisPanel({ result, usernames, finalWinner }: { result: CompareResp
 
       {result.llm.analysis.winner ? (
         <p className="winner-reason">
-          <TextWithFootnotes text={result.llm.analysis.winner.reason} sourceIds={sourceIds} />
+          <TextWithFootnotes text={result.llm.analysis.winner.reason} sourceIndexById={sourceIndexById} />
         </p>
       ) : null}
-
-      <div className="llm-score-grid">
-        {result.llm.analysis.accountScores.map((item) => (
-          <article className={item.username === finalWinner ? "llm-score-card winner" : "llm-score-card"} key={item.username}>
-            <div>
-              <h3>{item.username}</h3>
-              <p>
-                <TextWithFootnotes text={item.reason} sourceIds={sourceIds} />
-              </p>
-            </div>
-            <span>{item.score}</span>
-          </article>
-        ))}
-      </div>
-
-      <div className="llm-dimension-stack">
-        {result.llm.analysis.dimensionInsights.map((item) => {
-          const leftInsight = item.accounts.find((account) => account.username === leftUsername)?.insight ?? "模型未提供该账号洞察。";
-          const rightInsight = item.accounts.find((account) => account.username === rightUsername)?.insight ?? "模型未提供该账号洞察。";
-
-          return (
-            <article className="llm-dimension" key={item.dimension}>
-              <div className="llm-dimension-head">
-                <h3>{item.title}</h3>
-                <span>
-                  <TextWithFootnotes text={item.verdict} sourceIds={sourceIds} />
-                </span>
-              </div>
-              <div className="two-column-copy">
-                <div>
-                <h4>{leftUsername}</h4>
-                  <p>
-                    <TextWithFootnotes text={leftInsight} sourceIds={sourceIds} />
-                  </p>
-                </div>
-                <div>
-                  <h4>{rightUsername}</h4>
-                  <p>
-                    <TextWithFootnotes text={rightInsight} sourceIds={sourceIds} />
-                  </p>
-                </div>
-              </div>
-            </article>
-          );
-        })}
-      </div>
-
-      <div className="account-analysis-grid">
-        {usernames.map((username) => {
-          const accountAnalysis = analysisByUsername.get(username);
-
-          return (
-            <article className="account-analysis" key={username}>
-              <h3>{username}</h3>
-              <AnalysisList title="优势" items={accountAnalysis?.strengths ?? []} sourceIds={sourceIds} />
-              <AnalysisList title="风险" items={accountAnalysis?.risks ?? []} sourceIds={sourceIds} />
-              <AnalysisList title="建议" items={accountAnalysis?.recommendations ?? []} sourceIds={sourceIds} />
-            </article>
-          );
-        })}
-      </div>
-
-      {result.llm.analysis.caveats.length > 0 ? (
-        <div className="caveat-block">
-          <h3>评估边界</h3>
-          <ul className="caveat-list">
-            {result.llm.analysis.caveats.map((item) => (
-              <li key={item}>
-                <TextWithFootnotes text={item} sourceIds={sourceIds} />
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      <div className="source-footnotes">
-        <h3>信息来源</h3>
-        <ol>
-          {result.llm.analysis.sources.map((source) => (
-            <li id={`source-${source.id}`} key={source.id}>
-              <a href={source.url} target="_blank" rel="noreferrer">
-                [{source.id}] {source.label}
-              </a>
-              <span>{source.note}</span>
-            </li>
-          ))}
-        </ol>
-      </div>
     </section>
   );
 }
 
-function AnalysisList({ title, items, sourceIds }: { title: string; items: string[]; sourceIds: Set<string> }) {
+function AnalysisDetailCards({
+  result,
+  usernames,
+  finalWinner
+}: {
+  result: CompareResponse;
+  usernames: [string, string];
+  finalWinner: string | null;
+}) {
+  const [leftUsername, rightUsername] = usernames;
+  const analysisByUsername = new Map(result.llm.analysis.accountAnalyses.map((analysis) => [analysis.username, analysis]));
+  const accountAnalysisCards = usernames.flatMap((username) => {
+    const accountAnalysis = analysisByUsername.get(username);
+
+    return accountAnalysis ? [{ username, accountAnalysis }] : [];
+  });
+  const sourceIndexById = getSourceIndexById(result);
+
+  return (
+    <>
+      {result.llm.analysis.accountScores.length > 0 ? (
+        <section className="analysis-panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">模型评分</h2>
+          </div>
+          <div className="llm-score-grid">
+            {result.llm.analysis.accountScores.map((item) => (
+              <article className={item.username === finalWinner ? "llm-score-card winner" : "llm-score-card"} key={item.username}>
+                <div>
+                  <h3>{item.username}</h3>
+                  <p>
+                    <TextWithFootnotes text={item.reason} sourceIndexById={sourceIndexById} />
+                  </p>
+                </div>
+                <span>{item.score}</span>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {result.llm.analysis.dimensionInsights.length > 0 ? (
+        <section className="analysis-panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">维度洞察</h2>
+          </div>
+          <div className="llm-dimension-stack">
+            {result.llm.analysis.dimensionInsights.map((item) => {
+              const leftInsight = item.accounts.find((account) => account.username === leftUsername)?.insight ?? "模型未提供该账号洞察。";
+              const rightInsight = item.accounts.find((account) => account.username === rightUsername)?.insight ?? "模型未提供该账号洞察。";
+
+              return (
+                <article className="llm-dimension" key={item.dimension}>
+                  <div className="llm-dimension-head">
+                    <h3>{item.title}</h3>
+                    <span>
+                      <TextWithFootnotes text={item.verdict} sourceIndexById={sourceIndexById} />
+                    </span>
+                  </div>
+                  <div className="two-column-copy">
+                    <div>
+                      <h4>{leftUsername}</h4>
+                      <p>
+                        <TextWithFootnotes text={leftInsight} sourceIndexById={sourceIndexById} />
+                      </p>
+                    </div>
+                    <div>
+                      <h4>{rightUsername}</h4>
+                      <p>
+                        <TextWithFootnotes text={rightInsight} sourceIndexById={sourceIndexById} />
+                      </p>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      {accountAnalysisCards.length > 0 ? (
+        <section className="analysis-panel">
+          <div className="panel-heading">
+            <h2 className="panel-title">账号分析</h2>
+          </div>
+          <div className="account-analysis-grid">
+            {accountAnalysisCards.map(({ username, accountAnalysis }) => (
+              <article className="account-analysis" key={username}>
+                <h3>{username}</h3>
+                <AnalysisList title="优势" items={accountAnalysis.strengths} sourceIndexById={sourceIndexById} />
+                <AnalysisList title="风险" items={accountAnalysis.risks} sourceIndexById={sourceIndexById} />
+                <AnalysisList title="建议" items={accountAnalysis.recommendations} sourceIndexById={sourceIndexById} />
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {result.llm.analysis.caveats.length > 0 || result.llm.analysis.sources.length > 0 ? (
+        <section className="analysis-panel">
+          {result.llm.analysis.caveats.length > 0 ? (
+            <div>
+              <h2 className="panel-title">评估边界</h2>
+              <ul className="caveat-list">
+                {result.llm.analysis.caveats.map((item) => (
+                  <li key={item}>
+                    <TextWithFootnotes text={item} sourceIndexById={sourceIndexById} />
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {result.llm.analysis.sources.length > 0 ? (
+            <div className="source-footnotes">
+              <h3>信息来源</h3>
+              <ol>
+                {result.llm.analysis.sources.map((source, index) => (
+                  <li id={`source-${source.id}`} key={source.id}>
+                    <a href={source.url} target="_blank" rel="noreferrer">
+                      <strong>[{index + 1}] {source.id}</strong> {source.label}
+                    </a>
+                    <span className="source-footnote-note">{source.note}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function AnalysisList({
+  title,
+  items,
+  sourceIndexById
+}: {
+  title: string;
+  items: string[];
+  sourceIndexById: Map<string, number>;
+}) {
   if (items.length === 0) {
     return null;
   }
@@ -893,7 +1013,7 @@ function AnalysisList({ title, items, sourceIds }: { title: string; items: strin
       <ul className="recommendation-list">
         {items.map((item) => (
           <li key={item}>
-            <TextWithFootnotes text={item} sourceIds={sourceIds} />
+            <TextWithFootnotes text={item} sourceIndexById={sourceIndexById} />
           </li>
         ))}
       </ul>
@@ -1170,6 +1290,8 @@ function Results({
         <ResultShareActions result={result} usernames={usernames} />
       </section>
 
+      <AnalysisSummaryCard result={result} />
+
       <OverviewComparison datasets={datasets} />
 
       <div className="content-grid">
@@ -1179,7 +1301,8 @@ function Results({
         </section>
       </div>
 
-      <AnalysisPanel result={result} usernames={usernames} finalWinner={winner} />
+      <AnalysisDetailCards result={result} usernames={usernames} finalWinner={winner} />
+
       {isScoreInfoOpen ? <ScoreInfoModal onClose={() => setIsScoreInfoOpen(false)} /> : null}
     </div>
   );
@@ -1398,7 +1521,11 @@ export function ComparisonTool({ initialUsers = {} }: { initialUsers?: InitialUs
       </section>
 
       <section className="results-stack">
-        <TimelinePanel timeline={timeline} isLoading={isLoading} />
+        <TimelinePanel
+          timeline={timeline}
+          isLoading={isLoading}
+          key={isLoading ? "active-timeline" : result?.requestedAt ?? "idle-timeline"}
+        />
         {error ? (
           <ErrorState message={error} />
         ) : result ? (

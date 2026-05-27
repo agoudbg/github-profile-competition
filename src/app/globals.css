@@ -629,6 +629,27 @@ a {
   background: var(--accent-soft);
 }
 
+.timeline-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-heading-collapsed {
+  margin-bottom: 0;
+}
+
+.timeline-list-wrap {
+  overflow-y: auto;
+}
+
+.timeline-list-wrap.live {
+  height: 400px;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+}
+
 .timeline-list {
   display: grid;
   gap: 0;
@@ -1598,6 +1619,14 @@ a {
   overflow-x: auto;
 }
 
+.metric-table-footer {
+  display: flex;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding: 10px 16px 12px;
+  background: #fff;
+}
+
 .metric-table {
   width: 100%;
   min-width: 680px;
@@ -1640,6 +1669,18 @@ a {
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.55;
+}
+
+.dimension-issue-link {
+  display: inline-block;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.dimension-issue-link:hover {
+  text-decoration: underline;
 }
 
 .metric-score {
@@ -2020,10 +2061,18 @@ a {
   text-decoration: none;
 }
 
+.source-footnotes strong {
+  font-weight: 900;
+}
+
 .source-footnotes span {
   display: block;
   color: var(--ink-muted);
   font-size: 12px;
+}
+
+.source-footnote-note {
+  margin-top: 3px;
 }
 
 .modal-backdrop {
