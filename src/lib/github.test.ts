@@ -143,26 +143,10 @@ describe("collectGitHubUserDataset", () => {
                     }
                   ]
                 },
-                pullRequestContributionsByRepository: {
-                  contributions: {
-                    totalCount: 0
-                  }
-                },
-                issueContributionsByRepository: {
-                  contributions: {
-                    totalCount: 0
-                  }
-                },
-                commitContributionsByRepository: {
-                  contributions: {
-                    totalCount: 1
-                  }
-                },
-                pullRequestReviewContributionsByRepository: {
-                  contributions: {
-                    totalCount: 0
-                  }
-                }
+                totalCommitContributions: 1,
+                totalPullRequestContributions: 0,
+                totalIssueContributions: 0,
+                totalPullRequestReviewContributions: 0
               }
             }
           }
@@ -191,5 +175,96 @@ describe("collectGitHubUserDataset", () => {
         }
       }
     } satisfies Partial<AppError>);
+  });
+
+  it("maps GraphQL contribution totals for commits, pull requests, issues, and reviews", async () => {
+    globalThis.fetch = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+
+      if (url.includes("/graphql")) {
+        return githubJsonResponse({
+          data: {
+            user: {
+              contributionsCollection: {
+                contributionCalendar: {
+                  totalContributions: 42,
+                  weeks: [
+                    {
+                      contributionDays: [
+                        {
+                          date: "2026-05-24",
+                          contributionCount: 2
+                        },
+                        {
+                          date: "2026-05-25",
+                          contributionCount: 0
+                        },
+                        {
+                          date: "2026-05-26",
+                          contributionCount: 4
+                        }
+                      ]
+                    }
+                  ]
+                },
+                totalCommitContributions: 29,
+                totalPullRequestContributions: 7,
+                totalIssueContributions: 4,
+                totalPullRequestReviewContributions: 2
+              }
+            }
+          }
+        });
+      }
+
+      if (url.includes("/users/octocat/repos")) {
+        return githubJsonResponse([]);
+      }
+
+      if (url.includes("/users/octocat/events/public")) {
+        return githubJsonResponse([]);
+      }
+
+      if (url.includes("github.com/octocat")) {
+        return new Response("<html><body>Octocat profile</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" }
+        });
+      }
+
+      if (url.includes("/users/octocat")) {
+        return githubJsonResponse({
+          login: "octocat",
+          name: "The Octocat",
+          avatar_url: "https://github.com/images/error/octocat_happy.gif",
+          html_url: "https://github.com/octocat",
+          bio: null,
+          company: null,
+          location: null,
+          blog: "",
+          followers: 1,
+          following: 0,
+          public_repos: 0,
+          public_gists: 0,
+          created_at: "2011-01-25T18:44:36Z",
+          updated_at: "2026-05-25T00:00:00Z"
+        });
+      }
+
+      return githubJsonResponse([]);
+    }) as typeof fetch;
+
+    await expect(collectGitHubUserDataset("octocat")).resolves.toMatchObject({
+      contributions: {
+        source: "graphql",
+        confidence: "high",
+        totalContributions: 42,
+        commits: 29,
+        pullRequests: 7,
+        issues: 4,
+        reviews: 2,
+        activeDays: 2
+      }
+    });
   });
 });

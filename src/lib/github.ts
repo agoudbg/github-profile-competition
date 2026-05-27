@@ -74,20 +74,14 @@ type GraphQlContributionResponse = {
             }>;
           }>;
         };
-        pullRequestContributionsByRepository?: ContributionRepositoryConnection;
-        issueContributionsByRepository?: ContributionRepositoryConnection;
-        commitContributionsByRepository?: ContributionRepositoryConnection;
-        pullRequestReviewContributionsByRepository?: ContributionRepositoryConnection;
+        totalCommitContributions?: number;
+        totalPullRequestContributions?: number;
+        totalIssueContributions?: number;
+        totalPullRequestReviewContributions?: number;
       };
     };
   };
   errors?: Array<{ message?: string }>;
-};
-
-type ContributionRepositoryConnection = {
-  contributions?: {
-    totalCount?: number;
-  };
 };
 
 type FetchOptions = {
@@ -454,26 +448,10 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
                   }
                 }
               }
-              pullRequestContributionsByRepository(maxRepositories: 20) {
-                contributions {
-                  totalCount
-                }
-              }
-              issueContributionsByRepository(maxRepositories: 20) {
-                contributions {
-                  totalCount
-                }
-              }
-              commitContributionsByRepository(maxRepositories: 20) {
-                contributions {
-                  totalCount
-                }
-              }
-              pullRequestReviewContributionsByRepository(maxRepositories: 20) {
-                contributions {
-                  totalCount
-                }
-              }
+              totalCommitContributions
+              totalPullRequestContributions
+              totalIssueContributions
+              totalPullRequestReviewContributions
             }
           }
         }
@@ -539,10 +517,10 @@ async function fetchGraphQlContributionStats(username: string, token: string | u
       return total + activeInWeek;
     }, 0) ?? 0;
 
-  const commits = collection.commitContributionsByRepository?.contributions?.totalCount ?? 0;
-  const pullRequests = collection.pullRequestContributionsByRepository?.contributions?.totalCount ?? 0;
-  const issues = collection.issueContributionsByRepository?.contributions?.totalCount ?? 0;
-  const reviews = collection.pullRequestReviewContributionsByRepository?.contributions?.totalCount ?? 0;
+  const commits = collection.totalCommitContributions ?? 0;
+  const pullRequests = collection.totalPullRequestContributions ?? 0;
+  const issues = collection.totalIssueContributions ?? 0;
+  const reviews = collection.totalPullRequestReviewContributions ?? 0;
 
   return {
     source: "graphql",
