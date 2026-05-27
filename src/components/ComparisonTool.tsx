@@ -457,7 +457,7 @@ function TimelinePanel({ timeline, isLoading }: { timeline: ModelTimelineEvent[]
                 <div className="timeline-dot" aria-hidden="true" />
                 <div className="timeline-content">
                   <div className="timeline-head">
-                    <span>{event.title}</span>
+                    <span>{event.title.replace(/_/g, " ")}</span>
                     <time>{new Date(event.at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</time>
                   </div>
                   <p>{event.detail}</p>
